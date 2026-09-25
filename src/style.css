@@ -3,3 +3,6 @@
 
 /* this contains the default theme, these are optional styles */
 @import '@vue-flow/core/dist/theme-default.css';
+
+/* this is for Tailwind CSS */
+@import "tailwindcss";

@@ -5,6 +5,6 @@ const store = useCounterStore();
 </script>
 
 <template>
-  <p>{{store.count}}</p>
+  <p className="text-6xl">{{store.count}}</p>
   <button @click="store.increment()">Increase by 1</button>
 </template>
