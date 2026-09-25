@@ -1,3 +1,10 @@
+<script setup lang="ts">
+import { useCounterStore } from '../stores/counter';
+
+const store = useCounterStore();
+</script>
+
 <template>
-  <h1>Hello World</h1>
+  <p>{{store.count}}</p>
+  <button @click="store.increment()">Increase by 1</button>
 </template>
