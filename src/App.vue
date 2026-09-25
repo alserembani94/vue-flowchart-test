@@ -1,3 +1,7 @@
+<script setup lang="ts"></script>
+
 <template>
-  <router-view />
+  <div className="bg-slate-200 min-h-screen">
+    <router-view />
+  </div>
 </template>
