@@ -1,28 +1,70 @@
-type EventType =
-  | "trigger"
-  | "dateTime"
-  | "sendMessage"
-  | "addComment"
-  | "dateTimeConnector";
+type ActionType = "sendMessage" | "addComment" | "businessHours";
+type TriggerType = "conversationOpened";
 
-export type Event = {
+type NodeId = number | string;
+
+type CommonAttrs = {
+  id: NodeId;
   name?: string;
-  id: number;
-  parentId: number;
-  type: EventType;
+  parentId: NodeId;
+};
+
+type SendMessagePayload =
+  | { type: "text"; text: string }
+  | { type: "attachment"; attachent: string };
+
+type SendMessageNode = {
+  type: "sendMessage";
   data: {
-    type?: string;
-    oncePerContact?: boolean;
-    payload?: { type: string; text?: string; attachment?: string }[];
-    times?: {
+    payload: SendMessagePayload;
+  };
+} & CommonAttrs;
+
+type AddCommentNode = {
+  type: "addComment";
+  data: {
+    comment: string;
+  };
+} & CommonAttrs;
+
+type DateTimeConnectorNode = {
+  type: "dateTimeConnector";
+  data: {
+    connectorType: "failure" | "success";
+  };
+} & CommonAttrs;
+
+type DateTimeNode = {
+  type: "dateTime";
+  data: {
+    times: {
       startTime: string;
       endTime: string;
-      day: string;
+      day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
     }[];
-    connectors?: string[];
-    timezone?: string;
-    action?: string;
-    connectorType?: string;
-    comment?: string;
+    connectors: NodeId[];
+    timezone: string;
+    action: "businessHours";
   };
+} & CommonAttrs;
+
+type TriggerNode = {
+  type: "trigger";
+  data: {
+    type: TriggerType;
+    oncePerContact: boolean;
+  };
+} & CommonAttrs;
+
+export type Node =
+  | SendMessageNode
+  | AddCommentNode
+  | DateTimeConnectorNode
+  | DateTimeNode
+  | TriggerNode;
+
+export type Action = {
+  title: string;
+  description: string;
+  type: ActionType;
 };
