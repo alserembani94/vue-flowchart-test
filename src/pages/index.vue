@@ -35,7 +35,7 @@ async function layoutGraph(direction: LayoutDirection) {
   nodes.value = layout(nodes.value, edges.value, direction)
 
   await nextTick()
-  fitView()
+  fitView({ padding: 0.5 })
 }
 
 const route = useRoute();
@@ -93,7 +93,6 @@ function onNodeClick({ node }: NodeMouseEvent) {
       :delete-key-code="null"
       :selection-key-code="null"
       :multi-selection-key-code="null"
-      fit-view-on-init
       @nodes-initialized="layoutGraph('TB')"
       @node-click="onNodeClick"
       @pane-click="closeDrawer"
