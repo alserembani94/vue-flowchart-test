@@ -1,18 +1,11 @@
 import type { Edge, Node, XYPosition } from "@vue-flow/core";
-import type { FlowItem } from "../types";
+import type { FlowItem, FlowNodeData } from "../types";
+import { NODE_META } from "./nodeMeta";
 
 const originalPos: XYPosition = { x: 0, y: 0 };
 
-const EDGE_COLORS: Record<FlowItem["type"], string> = {
-  trigger: "var(--color-pink-600)",
-  sendMessage: "var(--color-emerald-600)",
-  addComment: "var(--color-sky-600)",
-  dateTime: "var(--color-orange-600)",
-  dateTimeConnector: "var(--color-orange-600)",
-};
-
 export const computeGraph = (data: FlowItem[]) => {
-  const nodes: Node[] = [];
+  const nodes: Node<FlowNodeData>[] = [];
   const edges: Edge[] = [];
 
   data.forEach((flowItem) => {
@@ -20,6 +13,7 @@ export const computeGraph = (data: FlowItem[]) => {
       id: flowItem.id.toString(),
       position: originalPos,
       type: flowItem.type,
+      selectable: NODE_META[flowItem.type].selectable,
       data: { ...flowItem, label: flowItem.type },
     });
   });
@@ -35,7 +29,7 @@ export const computeGraph = (data: FlowItem[]) => {
       source: parent.id.toString(),
       target: flowItem.id.toString(),
       style: {
-        stroke: EDGE_COLORS[parent.type],
+        stroke: NODE_META[parent.type].stroke,
         strokeWidth: 2,
       },
       type: "smoothstep",

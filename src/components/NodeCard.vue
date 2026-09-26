@@ -1,23 +1,30 @@
 <script setup lang="ts">
-const props = defineProps([
-  'type',
-  'headerText',
-  'bodyText',
-]);
+import { computed } from 'vue';
+import type { FlowItem } from '../types';
+import { NODE_META } from '../utils/nodeMeta';
+
+const props = defineProps<{
+  type: FlowItem['type'];
+  title: string;
+  description?: string;
+  selected?: boolean;
+}>();
+
+const meta = computed(() => NODE_META[props.type]);
 </script>
 
 <template>
-  <div class="w-48 bg-white rounded-xl text-sm flex flex-col border border-gray-200 drop-shadow transition">
+  <div
+    class="w-48 bg-white rounded-xl text-sm flex flex-col border drop-shadow transition"
+    :class="props.selected ? meta.borderSelected : 'border-gray-200'"
+  >
     <div class="flex gap-2 items-center p-2">
-       <i class="pi pi-bolt text-2xl text-pink-600" v-if="props.type === 'trigger'"></i>
-       <i class="pi pi-calendar-clock text-2xl text-orange-600" v-if="props.type === 'dateTime'"></i>
-       <i class="pi pi-send text-2xl text-emerald-600" v-if="props.type === 'sendMessage'"></i>
-       <i class="pi pi-comment text-2xl text-sky-600" v-if="props.type === 'addComment'"></i>
-       <p>{{ props.headerText }}</p>
+       <i class="text-2xl" :class="[meta.icon, meta.text]"></i>
+       <p>{{ props.title }}</p>
     </div>
     <hr class="border-gray-200" />
     <div class="p-2">
-      <p>{{ props.bodyText }}</p>
+      <p>{{ props.description }}</p>
     </div>
   </div>
 </template>

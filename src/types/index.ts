@@ -65,6 +65,9 @@ export type FlowItem =
   | DateTimeFlowItem
   | TriggerFlowItem;
 
+export type FlowNodeData<T extends FlowItem["type"] = FlowItem["type"]> =
+  Extract<FlowItem, { type: T }> & { label: string };
+
 export type Action = {
   title: string;
   description: string;
