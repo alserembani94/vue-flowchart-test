@@ -12,6 +12,7 @@ import type { FlowNodeData } from '../types';
 import NodeCard from '../components/NodeCard.vue';
 import Drawer from '../components/Drawer.vue';
 import NodeDetails from '../components/NodeDetails.vue';
+import { Background } from '@vue-flow/background'
 
 const { data } = useQuery({
   queryKey: ['processes'],
@@ -97,6 +98,7 @@ function onNodeClick({ node }: NodeMouseEvent) {
       @node-click="onNodeClick"
       @pane-click="closeDrawer"
     >
+      <Background />
 
       <template #node-trigger="{ selected }: NodeProps<FlowNodeData<'trigger'>>">
         <NodeCard v-bind="{
