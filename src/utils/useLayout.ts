@@ -46,13 +46,13 @@ export function useLayout() {
     dagre.layout(dagreGraph);
 
     return nodes.map((node) => {
-      const { x, y } = dagreGraph.node(node.id);
+      const { x, y, width, height } = dagreGraph.node(node.id);
 
       return {
         ...node,
         targetPosition: isHorizontal ? Position.Left : Position.Top,
         sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-        position: { x, y },
+        position: { x: x - width / 2, y: y - height / 2 },
       };
     });
   }

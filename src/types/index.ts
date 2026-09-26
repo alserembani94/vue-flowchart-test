@@ -8,7 +8,7 @@ type CommonAttrs = {
   parentId: FlowItemId;
 };
 
-type SendMessagePayload =
+export type SendMessagePayload =
   | { type: "text"; text: string }
   | { type: "attachment"; attachment: string };
 

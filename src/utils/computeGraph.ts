@@ -26,6 +26,8 @@ export const computeGraph = (data: FlowItem[]) => {
       id: `${parentId}-${flowItem.id}`,
       source: parentId,
       target: flowItem.id.toString(),
+      type: "smoothstep",
+      data: flowItem,
     });
   });
 
