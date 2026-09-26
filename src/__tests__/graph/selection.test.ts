@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h } from "vue";
+import { defineComponent, h, type PropType } from "vue";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
+import type { Node } from "@vue-flow/core";
 import IndexPage from "../../pages/index.vue";
 
 vi.mock("../../api/process", async () => {
@@ -13,8 +14,20 @@ vi.mock("../../api/process", async () => {
 
 const VueFlowStub = defineComponent({
   name: "VueFlow",
-  emits: ["nodeClick", "paneClick", "nodesInitialized"],
-  setup: () => () => h("div", { "data-test": "vue-flow" }),
+  props: { nodes: { type: Array as PropType<Node[]>, default: () => [] } },
+  emits: ["nodeClick", "nodesChange", "paneClick", "nodesInitialized"],
+  setup: (props) => () =>
+    h(
+      "div",
+      { "data-test": "vue-flow" },
+      props.nodes.map((node) =>
+        h("div", {
+          class: "vue-flow__node",
+          "data-id": node.id,
+          tabindex: node.focusable === false ? undefined : 0,
+        }),
+      ),
+    ),
 });
 
 let router: Router;
@@ -33,6 +46,7 @@ async function mountPage(url = "/") {
   });
 
   wrapper = mount(IndexPage, {
+    attachTo: document.body,
     global: {
       plugins: [router, [VueQueryPlugin, { queryClient }]],
       stubs: { VueFlow: VueFlowStub },
@@ -41,13 +55,37 @@ async function mountPage(url = "/") {
   await flushPromises();
 }
 
+const flow = () => wrapper.findComponent(VueFlowStub);
+const nodeElement = (id: string) =>
+  wrapper.get<HTMLElement>(`.vue-flow__node[data-id="${id}"]`).element;
+
+function isSelectableNode(id: string) {
+  const nodes = flow().props("nodes") as Node[];
+  return nodes.find((node) => node.id === id)?.selectable !== false;
+}
+
 async function clickNode(id: string) {
-  wrapper.findComponent(VueFlowStub).vm.$emit("nodeClick", { node: { id } });
+  nodeElement(id).focus();
+  if (isSelectableNode(id)) {
+    flow().vm.$emit("nodesChange", [{ id, type: "select", selected: true }]);
+  }
+  flow().vm.$emit("nodeClick", { node: { id } });
+  await flushPromises();
+}
+
+async function pressEnterOn(id: string) {
+  nodeElement(id).focus();
+  flow().vm.$emit("nodesChange", [{ id, type: "select", selected: true }]);
+  await flushPromises();
+}
+
+async function emitDeselect(id: string) {
+  flow().vm.$emit("nodesChange", [{ id, type: "select", selected: false }]);
   await flushPromises();
 }
 
 async function clickPane() {
-  wrapper.findComponent(VueFlowStub).vm.$emit("paneClick");
+  flow().vm.$emit("paneClick");
   await flushPromises();
 }
 
@@ -79,6 +117,15 @@ describe("selecting nodes", () => {
     expect(nodeQuery()).toBe("d09c08");
     expect(drawerTitle()).toContain("Business Hours");
     expect(drawer().text()).toContain("UTC");
+  });
+
+  it("opens the drawer when a node is selected with the keyboard", async () => {
+    await mountPage();
+
+    await pressEnterOn("b0653a");
+
+    expect(nodeQuery()).toBe("b0653a");
+    expect(drawerTitle()).toContain("Welcome Message");
   });
 
   it("swaps the content when another node is clicked while open", async () => {
@@ -122,6 +169,26 @@ describe("selecting nodes", () => {
     expect(drawer().exists()).toBe(false);
     expect(nodeQuery()).toBeUndefined();
   });
+
+  it("closes the drawer when Vue Flow deselects the open node", async () => {
+    await mountPage("/?node=d09c08");
+
+    await emitDeselect("d09c08");
+
+    expect(drawer().exists()).toBe(false);
+    expect(nodeQuery()).toBeUndefined();
+  });
+
+  it("ignores the old node being deselected after switching to a new one", async () => {
+    await mountPage();
+    await clickNode("d09c08");
+    await clickNode("b0653a");
+
+    await emitDeselect("d09c08");
+
+    expect(nodeQuery()).toBe("b0653a");
+    expect(drawerTitle()).toContain("Welcome Message");
+  });
 });
 
 describe("closing the drawer", () => {
@@ -144,10 +211,10 @@ describe("closing the drawer", () => {
     expect(nodeQuery()).toBeUndefined();
   });
 
-  it("closes with Escape", async () => {
+  it("closes with Escape inside the drawer", async () => {
     await mountPage("/?node=d09c08");
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await drawer().trigger("keydown", { key: "Escape" });
     await flushPromises();
 
     expect(drawer().exists()).toBe(false);
@@ -163,12 +230,107 @@ describe("closing the drawer", () => {
   });
 });
 
+describe("focus", () => {
+  it("moves focus into the drawer when it opens", async () => {
+    await mountPage();
+
+    await pressEnterOn("d09c08");
+
+    expect(document.activeElement).toBe(drawer().element);
+  });
+
+  it("moves focus into the drawer when switching to another node", async () => {
+    await mountPage();
+    await pressEnterOn("d09c08");
+
+    await pressEnterOn("b0653a");
+
+    expect(document.activeElement).toBe(drawer().element);
+  });
+
+  it("returns focus to the node on Escape", async () => {
+    await mountPage();
+    await pressEnterOn("d09c08");
+
+    await drawer().trigger("keydown", { key: "Escape" });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(nodeElement("d09c08"));
+  });
+
+  it("returns focus to the node when the close button is used", async () => {
+    await mountPage();
+    await pressEnterOn("d09c08");
+
+    await wrapper.get("aside header button").trigger("click");
+    await flushPromises();
+
+    expect(document.activeElement).toBe(nodeElement("d09c08"));
+  });
+
+  it("does not move focus to the node on pane click", async () => {
+    await mountPage();
+    await pressEnterOn("d09c08");
+
+    await clickPane();
+
+    expect(document.activeElement).not.toBe(nodeElement("d09c08"));
+  });
+
+  it("closes on Escape from a node and keeps focus there, before Vue Flow sees the key", async () => {
+    await mountPage();
+    await pressEnterOn("d09c08");
+    const node = nodeElement("d09c08");
+    const vueFlowHandler = vi.fn();
+    node.addEventListener("keydown", vueFlowHandler);
+    node.focus();
+
+    node.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await flushPromises();
+
+    expect(drawer().exists()).toBe(false);
+    expect(document.activeElement).toBe(node);
+    expect(vueFlowHandler).not.toHaveBeenCalled();
+  });
+
+  it("keeps Escape from Vue Flow after closing, so a second press doesn't reselect the node", async () => {
+    await mountPage();
+    await pressEnterOn("d09c08");
+    await drawer().trigger("keydown", { key: "Escape" });
+    await flushPromises();
+    const node = nodeElement("d09c08");
+    const vueFlowHandler = vi.fn();
+    node.addEventListener("keydown", vueFlowHandler);
+
+    node.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await flushPromises();
+
+    expect(vueFlowHandler).not.toHaveBeenCalled();
+    expect(drawer().exists()).toBe(false);
+    expect(nodeQuery()).toBeUndefined();
+    expect(document.activeElement).toBe(node);
+  });
+
+  it("only makes selectable nodes focusable", async () => {
+    await mountPage();
+
+    expect(nodeElement("d09c08").getAttribute("tabindex")).toBe("0");
+    expect(nodeElement("161f52").hasAttribute("tabindex")).toBe(false);
+  });
+});
+
 describe("deep links", () => {
   it("opens the drawer for a selectable node in the URL", async () => {
     await mountPage("/?node=b0653a");
 
     expect(nodeQuery()).toBe("b0653a");
     expect(drawerTitle()).toContain("Welcome Message");
+  });
+
+  it("moves focus into the drawer once the data has loaded", async () => {
+    await mountPage("/?node=b0653a");
+
+    expect(document.activeElement).toBe(drawer().element);
   });
 
   it("removes a connector id from the URL and keeps the drawer closed", async () => {

@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import Drawer from "../components/Drawer.vue";
 
-function pressEscape() {
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-}
-
 describe("Drawer", () => {
   it("renders nothing while closed", () => {
     const wrapper = mount(Drawer, {
@@ -35,18 +31,35 @@ describe("Drawer", () => {
     expect(wrapper.emitted("close")).toHaveLength(1);
   });
 
-  it("emits close on Escape only while open", async () => {
-    const wrapper = mount(Drawer, { props: { open: false } });
+  it("emits close on Escape inside the drawer", async () => {
+    const wrapper = mount(Drawer, { props: { open: true } });
 
-    pressEscape();
+    await wrapper.get("aside").trigger("keydown", { key: "Escape" });
+
+    expect(wrapper.emitted("close")).toHaveLength(1);
+  });
+
+  it("ignores Escape pressed outside the drawer", () => {
+    const wrapper = mount(Drawer, { props: { open: true } });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
     expect(wrapper.emitted("close")).toBeUndefined();
+  });
 
-    await wrapper.setProps({ open: true });
-    pressEscape();
-    expect(wrapper.emitted("close")).toHaveLength(1);
+  it("names the panel by its title and labels the close button", () => {
+    const wrapper = mount(Drawer, { props: { open: true, title: "Business Hours" } });
 
-    await wrapper.setProps({ open: false });
-    pressEscape();
-    expect(wrapper.emitted("close")).toHaveLength(1);
+    expect(wrapper.get("aside").attributes("aria-labelledby")).toBe("drawer-title");
+    expect(wrapper.get("aside header button").attributes("aria-label")).toBe("Close");
+  });
+
+  it("moves focus to the panel with focus()", () => {
+    const wrapper = mount(Drawer, { props: { open: true }, attachTo: document.body });
+
+    (wrapper.vm as unknown as { focus: () => void }).focus();
+
+    expect(document.activeElement).toBe(wrapper.get("aside").element);
+    wrapper.unmount();
   });
 });

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query';
 import { getProcesses } from '../api/process';
-import { computed, nextTick, shallowRef, watch } from 'vue';
+import { computed, nextTick, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { computeGraph } from '../utils/computeGraph';
-import { useVueFlow, VueFlow, type Edge, type Node, type NodeMouseEvent, type NodeProps } from '@vue-flow/core'
+import { useVueFlow, VueFlow, type Edge, type Node, type NodeChange, type NodeMouseEvent, type NodeProps } from '@vue-flow/core'
 import { useLayout, type LayoutDirection } from '../utils/useLayout';
 import { NODE_META, getItemTitle, isSelectable } from '../utils/nodeMeta';
 import { getMessagePreview } from '../utils/getMessagePreview';
@@ -29,7 +29,10 @@ watch(data, (processes) => {
 }, { immediate: true });
 
 const { layout } = useLayout();
-const { fitView, findNode, getSelectedNodes, addSelectedNodes, removeSelectedNodes } = useVueFlow();
+const {
+  fitView, findNode, getSelectedNodes, addSelectedNodes, removeSelectedNodes,
+  viewport, dimensions, setCenter,
+} = useVueFlow();
 
 async function layoutGraph(direction: LayoutDirection) {
   nodes.value = layout(nodes.value, edges.value, direction)
@@ -47,6 +50,7 @@ const selectedId = computed<string | null>({
     return typeof node === 'string' && node ? node : null;
   },
   set: (id) => {
+    if (id === selectedId.value) return;
     router.replace({ query: { ...route.query, node: id ?? undefined } });
   },
 });
@@ -74,76 +78,142 @@ function syncSelection() {
 
 watch([selectedId, nodes], syncSelection, { flush: 'post' });
 
-function closeDrawer() {
-  selectedId.value = null;
+function onNodesChange(changes: NodeChange[]) {
+  const selects = changes.filter((change) => change.type === 'select');
+  const selected = selects.find(
+    (change) => change.selected && isSelectable(itemsById.value.get(change.id)),
+  );
+
+  if (selected) {
+    selectedId.value = selected.id;
+  } else if (selects.some((change) => !change.selected && change.id === selectedId.value)) {
+    selectedId.value = null;
+  }
 }
 
 function onNodeClick({ node }: NodeMouseEvent) {
-  selectedId.value = isSelectable(itemsById.value.get(node.id)) ? node.id : null;
+  if (!isSelectable(itemsById.value.get(node.id))) closeDrawer();
+}
+
+const drawer = ref<InstanceType<typeof Drawer> | null>(null);
+
+watch(() => selectedItem.value?.id, (id) => {
+  if (id) drawer.value?.focus();
+}, { flush: 'post' });
+
+function focusNode(id: string) {
+  document
+    .querySelector<HTMLElement>(`.vue-flow__node[data-id=${JSON.stringify(id)}]`)
+    ?.focus({ preventScroll: true });
+}
+
+async function closeDrawer({ returnFocus = false } = {}) {
+  const id = selectedId.value;
+  selectedId.value = null;
+
+  if (returnFocus && id) {
+    await nextTick();
+    focusNode(id);
+  }
+}
+
+function onGraphKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return;
+
+  event.stopPropagation();
+  if (selectedItem.value) closeDrawer({ returnFocus: true });
+}
+
+function onGraphFocusin(event: FocusEvent) {
+  const element = (event.target as HTMLElement).closest<HTMLElement>('.vue-flow__node');
+  const node = element?.dataset.id ? findNode(element.dataset.id) : undefined;
+  if (!node) return;
+
+  const { x, y, zoom } = viewport.value;
+  const { width, height } = node.dimensions;
+  const left = node.computedPosition.x * zoom + x;
+  const top = node.computedPosition.y * zoom + y;
+  const inView =
+    left >= 0 &&
+    top >= 0 &&
+    left + width * zoom <= dimensions.value.width &&
+    top + height * zoom <= dimensions.value.height;
+
+  if (!inView) {
+    setCenter(node.computedPosition.x + width / 2, node.computedPosition.y + height / 2, {
+      zoom,
+      duration: 200,
+    });
+  }
 }
 </script>
 
 <template>
   <div class="h-screen">
 
-    <VueFlow
-      :nodes="nodes"
-      :edges="edges"
-      :nodes-connectable="false"
-      :delete-key-code="null"
-      :selection-key-code="null"
-      :multi-selection-key-code="null"
-      @nodes-initialized="layoutGraph('TB')"
-      @node-click="onNodeClick"
-      @pane-click="closeDrawer"
-    >
-      <Background />
+    <div class="h-full" @keydown.capture="onGraphKeydown" @focusin="onGraphFocusin">
+      <VueFlow
+        :nodes="nodes"
+        :edges="edges"
+        :nodes-connectable="false"
+        :delete-key-code="null"
+        :selection-key-code="null"
+        :multi-selection-key-code="null"
+        :select-nodes-on-drag="false"
+        :edges-focusable="false"
+        @nodes-initialized="layoutGraph('TB')"
+        @nodes-change="onNodesChange"
+        @node-click="onNodeClick"
+        @pane-click="closeDrawer()"
+      >
+        <Background />
 
-      <template #node-trigger="{ selected }: NodeProps<FlowNodeData<'trigger'>>">
-        <NodeCard v-bind="{
-          type: 'trigger',
-          title: 'Trigger',
-          description: 'Conversation Opened',
-          selected
-        }" />
-      </template>
+        <template #node-trigger="{ selected }: NodeProps<FlowNodeData<'trigger'>>">
+          <NodeCard v-bind="{
+            type: 'trigger',
+            title: 'Trigger',
+            description: 'Conversation Opened',
+            selected
+          }" />
+        </template>
 
-      <template #node-sendMessage="{ data, selected }: NodeProps<FlowNodeData<'sendMessage'>>">
-        <NodeCard v-bind="{
-          type: 'sendMessage',
-          title: data.name,
-          description: `Message: ${getMessagePreview(data.data.payload)}`,
-          selected
-        }" />
-      </template>
+        <template #node-sendMessage="{ data, selected }: NodeProps<FlowNodeData<'sendMessage'>>">
+          <NodeCard v-bind="{
+            type: 'sendMessage',
+            title: data.name,
+            description: `Message: ${getMessagePreview(data.data.payload)}`,
+            selected
+          }" />
+        </template>
 
-      <template #node-addComment="{ data, selected }: NodeProps<FlowNodeData<'addComment'>>">
-        <NodeCard v-bind="{
-          type: 'addComment',
-          title: data.name,
-          description: data.data.comment,
-          selected
-        }" />
-      </template>
+        <template #node-addComment="{ data, selected }: NodeProps<FlowNodeData<'addComment'>>">
+          <NodeCard v-bind="{
+            type: 'addComment',
+            title: data.name,
+            description: data.data.comment,
+            selected
+          }" />
+        </template>
 
-      <template #node-dateTime="{ data, selected }: NodeProps<FlowNodeData<'dateTime'>>">
-        <NodeCard v-bind="{
-          type: 'dateTime',
-          title: data.name,
-          description: `${data.name} + ${data.data.timezone}`,
-          selected
-        }" />
-      </template>
+        <template #node-dateTime="{ data, selected }: NodeProps<FlowNodeData<'dateTime'>>">
+          <NodeCard v-bind="{
+            type: 'dateTime',
+            title: data.name,
+            description: `${data.name} + ${data.data.timezone}`,
+            selected
+          }" />
+        </template>
 
-      <template #node-dateTimeConnector="{ data }: NodeProps<FlowNodeData<'dateTimeConnector'>>">
-        <div class="px-2 py-1 bg-blue-200 text-blue-600 rounded-lg">
-          {{ data.data.connectorType }}
-        </div>
-      </template>
+        <template #node-dateTimeConnector="{ data }: NodeProps<FlowNodeData<'dateTimeConnector'>>">
+          <div class="px-2 py-1 bg-blue-200 text-blue-600 rounded-lg">
+            {{ data.data.connectorType }}
+          </div>
+        </template>
 
-    </VueFlow>
+      </VueFlow>
+    </div>
 
-    <Drawer :open="!!selectedItem" @close="closeDrawer">
+    <Drawer ref="drawer" :open="!!selectedItem" @close="closeDrawer({ returnFocus: true })">
       <template v-if="selectedItem" #title>
         <span class="flex items-center gap-2">
           <i :class="[NODE_META[selectedItem.type].icon, NODE_META[selectedItem.type].text]"></i>
@@ -159,5 +229,9 @@ function onNodeClick({ node }: NodeMouseEvent) {
 <style scoped>
 :deep(.vue-flow__handle) {
   visibility: hidden;
+}
+
+:deep(.vue-flow__node:focus-visible) {
+  outline: none;
 }
 </style>

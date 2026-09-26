@@ -15,8 +15,8 @@ const meta = computed(() => NODE_META[props.type]);
 
 <template>
   <div
-    class="w-48 bg-white rounded-xl text-sm flex flex-col border drop-shadow transition"
-    :class="props.selected ? meta.borderSelected : 'border-gray-200'"
+    class="w-48 bg-white rounded-xl text-sm flex flex-col border border-gray-200 drop-shadow transition"
+    :class="props.selected ? meta.ringSelected : meta.ringFocus"
   >
     <div class="flex gap-2 items-center p-2">
        <i class="text-2xl" :class="[meta.icon, meta.text]"></i>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps<{
   open: boolean;
@@ -8,15 +8,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>();
 
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && !event.defaultPrevented) emit('close');
+const panel = ref<HTMLElement | null>(null);
+
+function focus() {
+  panel.value?.focus({ preventScroll: true });
 }
 
-watch(() => props.open, (open, _, onCleanup) => {
-  if (!open) return;
-  window.addEventListener('keydown', onKeydown);
-  onCleanup(() => window.removeEventListener('keydown', onKeydown));
-}, { immediate: true });
+defineExpose({ focus });
 </script>
 
 <template>
@@ -28,7 +26,11 @@ watch(() => props.open, (open, _, onCleanup) => {
   >
     <aside
       v-if="props.open"
-      class="fixed inset-y-0 right-0 z-10 w-96 max-w-full bg-white shadow-xl flex flex-col"
+      ref="panel"
+      tabindex="-1"
+      aria-labelledby="drawer-title"
+      class="fixed inset-y-0 right-0 z-10 w-96 max-w-full bg-white shadow-xl flex flex-col focus:outline-none"
+      @keydown.esc="emit('close')"
     >
       <header class="flex items-center justify-between gap-2 p-4 border-b border-gray-200">
         <h2 id="drawer-title" class="font-semibold min-w-0">
@@ -36,6 +38,7 @@ watch(() => props.open, (open, _, onCleanup) => {
         </h2>
         <button
           type="button"
+          aria-label="Close"
           class="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           @click="emit('close')"
         >

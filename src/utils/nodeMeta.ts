@@ -4,20 +4,19 @@ type NodeMeta = {
   label: string;
   icon: string;
   text: string;
-  /** only selectable nodes get a selected border */
-  borderSelected?: string;
+  ringSelected?: string;
+  ringFocus?: string;
   stroke: string;
-  /** whether clicking the node (or linking to it via ?node=) opens the drawer */
   selectable: boolean;
 };
 
-// class names are written out in full so Tailwind can find them when scanning the source
 export const NODE_META: Record<FlowItem["type"], NodeMeta> = {
   trigger: {
     label: "Trigger",
     icon: "pi pi-bolt",
     text: "text-pink-600",
-    borderSelected: "border-pink-600",
+    ringSelected: "ring-2 ring-pink-600",
+    ringFocus: "in-focus-visible:ring-2 in-focus-visible:ring-pink-300",
     stroke: "var(--color-pink-600)",
     selectable: true,
   },
@@ -25,7 +24,8 @@ export const NODE_META: Record<FlowItem["type"], NodeMeta> = {
     label: "Send Message",
     icon: "pi pi-send",
     text: "text-emerald-600",
-    borderSelected: "border-emerald-600",
+    ringSelected: "ring-2 ring-emerald-600",
+    ringFocus: "in-focus-visible:ring-2 in-focus-visible:ring-emerald-300",
     stroke: "var(--color-emerald-600)",
     selectable: true,
   },
@@ -33,7 +33,8 @@ export const NODE_META: Record<FlowItem["type"], NodeMeta> = {
     label: "Add Comment",
     icon: "pi pi-comment",
     text: "text-sky-600",
-    borderSelected: "border-sky-600",
+    ringSelected: "ring-2 ring-sky-600",
+    ringFocus: "in-focus-visible:ring-2 in-focus-visible:ring-sky-300",
     stroke: "var(--color-sky-600)",
     selectable: true,
   },
@@ -41,7 +42,8 @@ export const NODE_META: Record<FlowItem["type"], NodeMeta> = {
     label: "Business Hours",
     icon: "pi pi-calendar-clock",
     text: "text-orange-600",
-    borderSelected: "border-orange-600",
+    ringSelected: "ring-2 ring-orange-600",
+    ringFocus: "in-focus-visible:ring-2 in-focus-visible:ring-orange-300",
     stroke: "var(--color-orange-600)",
     selectable: true,
   },
@@ -58,7 +60,12 @@ export function isSelectable(item: FlowItem | undefined): item is FlowItem {
   return !!item && NODE_META[item.type].selectable;
 }
 
-/** Display title for an item: its name, or its type label when the item type has no name. */
 export function getItemTitle(item: FlowItem): string {
   return "name" in item ? item.name : NODE_META[item.type].label;
+}
+
+export function getItemAriaLabel(item: FlowItem): string {
+  const label = NODE_META[item.type].label;
+  const title = getItemTitle(item);
+  return title === label ? label : `${label}: ${title}`;
 }
