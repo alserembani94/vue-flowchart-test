@@ -14,10 +14,18 @@ export const computeGraph = (data: FlowItem[]) => {
       type: flowItem.type,
       data: { ...flowItem, label: flowItem.type },
     });
+  });
+
+  const ids = new Set(nodes.map((node) => node.id));
+
+  data.forEach((flowItem) => {
+    const parentId = flowItem.parentId.toString();
+    if (!ids.has(parentId)) return;
+
     edges.push({
-      id: `${flowItem.id}-${flowItem.parentId}`,
-      source: flowItem.id.toString(),
-      target: flowItem.parentId.toString(),
+      id: `${parentId}-${flowItem.id}`,
+      source: parentId,
+      target: flowItem.id.toString(),
     });
   });
 
