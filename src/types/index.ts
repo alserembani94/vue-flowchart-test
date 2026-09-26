@@ -1,54 +1,56 @@
 type ActionType = "sendMessage" | "addComment" | "businessHours";
 type TriggerType = "conversationOpened";
 
-type NodeId = number | string;
+type FlowItemId = number | string;
 
 type CommonAttrs = {
-  id: NodeId;
-  name?: string;
-  parentId: NodeId;
+  id: FlowItemId;
+  parentId: FlowItemId;
 };
 
 type SendMessagePayload =
   | { type: "text"; text: string }
-  | { type: "attachment"; attachent: string };
+  | { type: "attachment"; attachment: string };
 
-type SendMessageNode = {
+type SendMessageFlowItem = {
   type: "sendMessage";
+  name: string;
   data: {
-    payload: SendMessagePayload;
+    payload: SendMessagePayload[];
   };
 } & CommonAttrs;
 
-type AddCommentNode = {
+type AddCommentFlowItem = {
   type: "addComment";
+  name: string;
   data: {
     comment: string;
   };
 } & CommonAttrs;
 
-type DateTimeConnectorNode = {
+type DateTimeConnectorFlowItem = {
   type: "dateTimeConnector";
   data: {
     connectorType: "failure" | "success";
   };
 } & CommonAttrs;
 
-type DateTimeNode = {
+type DateTimeFlowItem = {
   type: "dateTime";
+  name: string;
   data: {
     times: {
       startTime: string;
       endTime: string;
       day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
     }[];
-    connectors: NodeId[];
+    connectors: FlowItemId[];
     timezone: string;
     action: "businessHours";
   };
 } & CommonAttrs;
 
-type TriggerNode = {
+type TriggerFlowItem = {
   type: "trigger";
   data: {
     type: TriggerType;
@@ -56,12 +58,12 @@ type TriggerNode = {
   };
 } & CommonAttrs;
 
-export type Node =
-  | SendMessageNode
-  | AddCommentNode
-  | DateTimeConnectorNode
-  | DateTimeNode
-  | TriggerNode;
+export type FlowItem =
+  | SendMessageFlowItem
+  | AddCommentFlowItem
+  | DateTimeConnectorFlowItem
+  | DateTimeFlowItem
+  | TriggerFlowItem;
 
 export type Action = {
   title: string;
