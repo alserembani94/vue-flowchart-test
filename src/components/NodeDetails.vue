@@ -87,6 +87,7 @@ dl > dt {
     </template>
 
 
+    <!-- TODO: Remove this after done with development -->
     <details class="rounded-lg border border-gray-200">
       <summary class="cursor-pointer p-2 text-gray-500">Raw data</summary>
       <pre class="overflow-x-auto border-t border-gray-200 p-2 text-xs">{{ JSON.stringify(props.item, null, 2) }}</pre>

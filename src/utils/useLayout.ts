@@ -45,6 +45,16 @@ export function useLayout() {
 
     dagre.layout(dagreGraph);
 
+    const rankSize = new Map<number, number>();
+    for (const id of dagreGraph.nodes()) {
+      const { x, y, width, height } = dagreGraph.node(id);
+      const rank = isHorizontal ? x : y;
+      rankSize.set(
+        rank,
+        Math.max(rankSize.get(rank) ?? 0, isHorizontal ? width : height),
+      );
+    }
+
     return nodes.map((node) => {
       const { x, y, width, height } = dagreGraph.node(node.id);
 
@@ -52,7 +62,9 @@ export function useLayout() {
         ...node,
         targetPosition: isHorizontal ? Position.Left : Position.Top,
         sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-        position: { x: x - width / 2, y: y - height / 2 },
+        position: isHorizontal
+          ? { x: x - rankSize.get(x)! / 2, y: y - height / 2 }
+          : { x: x - width / 2, y: y - rankSize.get(y)! / 2 },
       };
     });
   }

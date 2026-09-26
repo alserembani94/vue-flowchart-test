@@ -148,9 +148,6 @@ function onNodeClick({ node }: NodeMouseEvent) {
           <i :class="[NODE_META[selectedItem.type].icon, NODE_META[selectedItem.type].text]"></i>
           <span class="truncate">{{ getItemTitle(selectedItem) }}</span>
         </span>
-        <span class="block text-xs font-normal text-gray-500">
-          {{ NODE_META[selectedItem.type].label }} · {{ selectedItem.id }}
-        </span>
       </template>
 
       <NodeDetails v-if="selectedItem" :item="selectedItem" />
