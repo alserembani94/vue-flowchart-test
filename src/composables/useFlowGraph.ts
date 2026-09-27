@@ -1,9 +1,10 @@
-import type { Edge, Node } from '@vue-flow/core'
+import type { Edge, Node, NodeDragEvent } from '@vue-flow/core'
 import type { LayoutDirection } from './useLayout'
 import { useVueFlow } from '@vue-flow/core'
 import { nextTick, shallowRef, watch } from 'vue'
 import { useFlowStore } from '../stores/flow'
 import { computeGraph } from '../utils/computeGraph'
+import { createInsertFollower } from '../utils/insertFollow'
 import { withInsertPoints } from '../utils/insertPoints'
 import { getItemAriaLabel } from '../utils/nodeMeta'
 import { useLayout } from './useLayout'
@@ -55,5 +56,19 @@ export function useFlowGraph() {
     },
   )
 
-  return { nodes, edges, layoutGraph }
+  const insertFollower = createInsertFollower(findNode, (id, position) => updateNode(id, { position }))
+
+  function onNodeDragStart({ node }: NodeDragEvent) {
+    insertFollower.start(node)
+  }
+
+  function onNodeDrag({ node }: NodeDragEvent) {
+    insertFollower.move(node)
+  }
+
+  function onNodeDragStop() {
+    insertFollower.stop()
+  }
+
+  return { nodes, edges, layoutGraph, onNodeDragStart, onNodeDrag, onNodeDragStop }
 }

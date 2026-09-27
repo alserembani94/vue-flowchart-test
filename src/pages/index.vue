@@ -35,7 +35,7 @@ watch(processes, (loaded) => {
     flow.setItems(loaded)
 }, { immediate: true })
 
-const { nodes, layoutGraph, edges } = useFlowGraph()
+const { nodes, layoutGraph, edges, onNodeDragStart, onNodeDrag, onNodeDragStop } = useFlowGraph()
 const details = ref<InstanceType<typeof NodeDetails> | null>(null)
 
 const LEAVE_MESSAGE = 'A message is empty, so your message changes can\'t be saved. Leave anyway and lose them?'
@@ -195,6 +195,9 @@ function onGraphFocusin(event: FocusEvent) {
         :edges-focusable="false"
         @nodes-initialized="layoutGraph('TB')"
         @nodes-change="onNodesChange"
+        @node-drag-start="onNodeDragStart"
+        @node-drag="onNodeDrag"
+        @node-drag-stop="onNodeDragStop"
         @node-click="onNodeClick"
         @pane-click="closeDrawer()"
       >
