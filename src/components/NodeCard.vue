@@ -5,6 +5,7 @@ import { NODE_META } from '../utils/nodeMeta';
 
 const props = defineProps<{
   type: FlowItem['type'];
+  icon: string;
   title: string;
   description?: string;
   selected?: boolean;
@@ -19,12 +20,12 @@ const meta = computed(() => NODE_META[props.type]);
     :class="props.selected ? meta.ringSelected : meta.ringFocus"
   >
     <div class="flex gap-2 items-center p-2">
-       <i class="text-2xl" :class="[meta.icon, meta.text]"></i>
+       <i class="text-2xl" :class="[props.icon, meta.text]"></i>
        <p>{{ props.title }}</p>
     </div>
     <hr class="border-gray-200" />
     <div class="p-2">
-      <p>{{ props.description }}</p>
+      <p class="line-clamp-3 wrap-break-word">{{ props.description }}</p>
     </div>
   </div>
 </template>

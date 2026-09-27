@@ -171,6 +171,7 @@ function onGraphFocusin(event: FocusEvent) {
         <template #node-trigger="{ selected }: NodeProps<FlowNodeData<'trigger'>>">
           <NodeCard v-bind="{
             type: 'trigger',
+            icon: NODE_META.trigger.icon,
             title: 'Trigger',
             description: 'Conversation Opened',
             selected
@@ -180,6 +181,7 @@ function onGraphFocusin(event: FocusEvent) {
         <template #node-sendMessage="{ data, selected }: NodeProps<FlowNodeData<'sendMessage'>>">
           <NodeCard v-bind="{
             type: 'sendMessage',
+            icon: NODE_META.sendMessage.icon,
             title: data.name,
             description: `Message: ${getMessagePreview(data.data.payload)}`,
             selected
@@ -189,6 +191,7 @@ function onGraphFocusin(event: FocusEvent) {
         <template #node-addComment="{ data, selected }: NodeProps<FlowNodeData<'addComment'>>">
           <NodeCard v-bind="{
             type: 'addComment',
+            icon: NODE_META.addComment.icon,
             title: data.name,
             description: data.data.comment,
             selected
@@ -198,6 +201,7 @@ function onGraphFocusin(event: FocusEvent) {
         <template #node-dateTime="{ data, selected }: NodeProps<FlowNodeData<'dateTime'>>">
           <NodeCard v-bind="{
             type: 'dateTime',
+            icon: NODE_META.dateTime.icon,
             title: data.name,
             description: `${data.name} + ${data.data.timezone}`,
             selected
