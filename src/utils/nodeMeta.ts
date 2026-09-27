@@ -56,6 +56,21 @@ export const NODE_META: Record<FlowItem['type'], NodeMeta> = {
   },
 }
 
+export type ContentItem = Extract<FlowItem, { type: 'sendMessage' | 'addComment' | 'dateTime' }>
+
+export interface ItemContent {
+  title: string
+  description: string
+}
+
+export function isContentItem(item: FlowItem | undefined): item is ContentItem {
+  return item?.type === 'sendMessage' || item?.type === 'addComment' || item?.type === 'dateTime'
+}
+
+export function getItemContent(item: FlowItem | undefined): ItemContent | null {
+  return isContentItem(item) ? { title: item.name, description: item.data.description ?? '' } : null
+}
+
 export function isSelectable(item: FlowItem | undefined): item is FlowItem {
   return !!item && NODE_META[item.type].selectable
 }

@@ -2,8 +2,8 @@
 import type { ItemPatch } from '../stores/flow'
 import type { FlowItem } from '../types'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { isContentItem } from '../stores/flow'
 import { INPUT_DEBOUNCE_MS } from '../utils/constants'
+import { getItemContent } from '../utils/nodeMeta'
 
 const props = defineProps<{ item: FlowItem }>()
 
@@ -12,10 +12,7 @@ const emit = defineEmits<{
   delete: [id: string]
 }>()
 
-const content = computed(() => {
-  const { item } = props
-  return isContentItem(item) ? { title: item.name, description: item.data.description ?? '' } : null
-})
+const content = computed(() => getItemContent(props.item))
 
 const titleDraft = ref('')
 const descriptionDraft = ref('')

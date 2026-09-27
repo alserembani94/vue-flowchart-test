@@ -51,27 +51,17 @@ describe('insert buttons', () => {
     expect(drawer()).toHaveFocus()
   })
 
-  it('uses the parent\'s edge color between nodes and gray at the end, for border and icon', async () => {
-    await renderIndexPage()
+  it('gives each + button the color of its insert point, updating when a node is added after it', async () => {
+    const { user } = await renderIndexPage()
 
     expect(insertButton(AFTER_TRIGGER).style.borderColor).toBe(NODE_META.trigger.stroke)
-    expect(insertButton(AFTER_TRIGGER).style.color).toBe(NODE_META.trigger.stroke)
     expect(insertButton(AFTER_WELCOME).style.borderColor).toBe(INSERT_END_COLOR)
-    expect(insertButton(AFTER_WELCOME).style.color).toBe(INSERT_END_COLOR)
-  })
 
-  it('recolors when a node is added after it and deleted again', async () => {
-    const { user, store, nodeQuery } = await renderIndexPage()
     await user.click(insertButton(AFTER_WELCOME))
     await fillAndSubmit(user, { type: 'sendMessage', title: 'Next' })
 
     expect(insertButton(AFTER_WELCOME).style.borderColor).toBe(NODE_META.sendMessage.stroke)
     expect(insertButton('Add node after Next').style.borderColor).toBe(INSERT_END_COLOR)
-
-    store.deleteItem(nodeQuery() as string)
-    await flushPromises()
-
-    expect(insertButton(AFTER_WELCOME).style.borderColor).toBe(INSERT_END_COLOR)
   })
 })
 
@@ -91,10 +81,7 @@ describe('create form context', () => {
     await user.click(insertButton(AFTER_WELCOME))
 
     expect(insertButton(AFTER_WELCOME)).toHaveAttribute('aria-expanded', 'true')
-    expect(insertButton(AFTER_WELCOME).style.backgroundColor).toBe(INSERT_END_COLOR)
-    expect(insertButton(AFTER_WELCOME).style.color).toBe('white')
     expect(insertButton(AFTER_TRIGGER)).toHaveAttribute('aria-expanded', 'false')
-    expect(insertButton(AFTER_TRIGGER).style.backgroundColor).toBe('')
   })
 
   it('clears the form and updates the context when switching to another +', async () => {

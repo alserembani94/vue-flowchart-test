@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import type { Edge, Node, NodeChange, NodeMouseEvent, NodeProps } from '@vue-flow/core'
+import type { NodeMouseEvent, NodeProps } from '@vue-flow/core'
 import type { ItemPatch, NewNodeInput } from '../stores/flow'
 import type { FlowNodeData } from '../types'
 import type { InsertNodeData } from '../utils/insertPoints'
-import type { LayoutDirection } from '../utils/useLayout'
 import { useQuery } from '@tanstack/vue-query'
 import { Background } from '@vue-flow/background'
 import { useVueFlow, VueFlow } from '@vue-flow/core'
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, nextTick, ref, watch } from 'vue'
 import { getProcesses } from '../api/process'
 import CreateNodeForm from '../components/CreateNodeForm.vue'
 import Drawer from '../components/Drawer.vue'
+import InsertButton from '../components/InsertButton.vue'
 import NodeCard from '../components/NodeCard.vue'
 import NodeDetails from '../components/NodeDetails.vue'
-import { isContentItem, useFlowStore } from '../stores/flow'
-import { computeGraph } from '../utils/computeGraph'
-import { INSERT_NODE_TYPE, insertNodeId, withInsertPoints } from '../utils/insertPoints'
-import { getItemAriaLabel, getItemDisplayName, isSelectable, NODE_META } from '../utils/nodeMeta'
-import { useLayout } from '../utils/useLayout'
+import { useFlowGraph } from '../composables/useFlowGraph'
+import { useNodeSelection } from '../composables/useNodeSelection'
+import { useFlowStore } from '../stores/flow'
+import { INSERT_NODE_TYPE, insertNodeId } from '../utils/insertPoints'
+import { getItemContent, getItemDisplayName, isSelectable, NODE_META } from '../utils/nodeMeta'
+import { isBoxInView } from '../utils/viewport'
 
 const CARD_TYPES = ['sendMessage', 'addComment', 'dateTime'] as const
 type CardType = (typeof CARD_TYPES)[number]
@@ -28,7 +28,6 @@ const flow = useFlowStore()
 const { data: processes } = useQuery({
   queryKey: ['processes'],
   queryFn: getProcesses,
-  staleTime: Infinity,
 })
 
 watch(processes, (loaded) => {
@@ -36,122 +35,17 @@ watch(processes, (loaded) => {
     flow.setItems(loaded)
 }, { immediate: true })
 
-const nodes = shallowRef<Node[]>([])
-const edges = shallowRef<Edge[]>([])
-
-const { layout } = useLayout()
-const {
-  fitView,
-  findNode,
-  getSelectedNodes,
-  addSelectedNodes,
-  removeSelectedNodes,
-  viewport,
-  dimensions,
-  setCenter,
-  updateNode,
-} = useVueFlow()
-
-let hasFitted = false
-
-async function layoutGraph(direction: LayoutDirection) {
-  nodes.value = layout(nodes.value, edges.value, direction)
-  if (hasFitted)
-    return
-
-  hasFitted = true
-  await nextTick()
-  fitView({ padding: 0.5 })
-}
-
-watch(() => flow.structureKey, () => {
-  const graph = computeGraph(flow.items)
-  const composed = withInsertPoints(graph.nodes, graph.edges)
-  const hadNodes = nodes.value.length > 0
-  const hasNewNodes = composed.nodes.some(node => !findNode(node.id))
-
-  nodes.value = composed.nodes.map((node) => {
-    const position = findNode(node.id)?.position
-    return position ? { ...node, position: { ...position } } : node
-  })
-  edges.value = composed.edges
-
-  if (hadNodes && !hasNewNodes)
-    nextTick(() => layoutGraph('TB'))
-}, { immediate: true })
-
-watch(
-  () => flow.items.map(item => [item.id.toString(), getItemAriaLabel(item)] as const),
-  (labels) => {
-    for (const [id, ariaLabel] of labels) {
-      const node = findNode(id)
-      if (node && node.ariaLabel !== ariaLabel)
-        updateNode(id, { ariaLabel })
-    }
-  },
-)
+const { nodes, layoutGraph, edges } = useFlowGraph()
+const { selectedId, selectedItem, onNodesChange } = useNodeSelection(nodes)
+const { findNode, viewport, dimensions, setCenter } = useVueFlow()
 
 function cardContent(id: string) {
-  const item = flow.itemsById.get(id)
-  return isContentItem(item)
-    ? { title: item.name, description: item.data.description ?? '' }
-    : { title: '', description: '' }
+  return getItemContent(flow.itemsById.get(id)) ?? { title: '', description: '' }
 }
 
 function insertLabel(parentId: string) {
   const parent = flow.itemsById.get(parentId)
   return parent ? `Add node after ${getItemDisplayName(parent, flow.itemsById)}` : 'Add node'
-}
-
-const route = useRoute()
-const router = useRouter()
-
-const selectedId = computed<string | null>({
-  get: () => {
-    const node = route.query.node
-    return typeof node === 'string' && node ? node : null
-  },
-  set: (id) => {
-    if (id === selectedId.value)
-      return
-    router.replace({ query: { ...route.query, node: id ?? undefined } })
-  },
-})
-
-const selectedItem = computed(() => {
-  const item = selectedId.value ? flow.itemsById.get(selectedId.value) : undefined
-  return isSelectable(item) ? item : null
-})
-
-watch([selectedId, () => flow.loaded], ([id, loaded]) => {
-  if (id && loaded && !selectedItem.value)
-    selectedId.value = null
-})
-
-function syncSelection() {
-  const node = selectedId.value ? findNode(selectedId.value) : undefined
-  const stale = getSelectedNodes.value.filter(selected => selected.id !== node?.id)
-
-  if (stale.length)
-    removeSelectedNodes(stale)
-  if (node && !node.selected)
-    addSelectedNodes([node])
-}
-
-watch([selectedId, nodes], syncSelection, { flush: 'post' })
-
-function onNodesChange(changes: NodeChange[]) {
-  const selects = changes.filter(change => change.type === 'select')
-  const selected = selects.find(
-    change => change.selected && isSelectable(flow.itemsById.get(change.id)),
-  )
-
-  if (selected) {
-    selectedId.value = selected.id
-  }
-  else if (selects.some(change => !change.selected && change.id === selectedId.value)) {
-    selectedId.value = null
-  }
 }
 
 function onNodeClick({ node }: NodeMouseEvent) {
@@ -177,16 +71,6 @@ const createContext = computed(() => {
     hasNextSteps: flow.items.some(item => item.parentId.toString() === parentId),
   }
 })
-
-function insertButtonStyle({ parentId, color }: InsertNodeData) {
-  const active = createParentId.value === parentId
-  return {
-    'borderColor': color,
-    'color': active ? 'white' : color,
-    'backgroundColor': active ? color : undefined,
-    '--tw-ring-color': color,
-  }
-}
 
 watch(selectedId, (id) => {
   if (id)
@@ -271,22 +155,11 @@ function onGraphFocusin(event: FocusEvent) {
   if (!node)
     return
 
-  const { x, y, zoom } = viewport.value
+  const { x, y } = node.computedPosition
   const { width, height } = node.dimensions
-  const left = node.computedPosition.x * zoom + x
-  const top = node.computedPosition.y * zoom + y
-  const inView
-    = left >= 0
-      && top >= 0
-      && left + width * zoom <= dimensions.value.width
-      && top + height * zoom <= dimensions.value.height
 
-  if (!inView) {
-    setCenter(node.computedPosition.x + width / 2, node.computedPosition.y + height / 2, {
-      zoom,
-      duration: 200,
-    })
-  }
+  if (!isBoxInView({ x, y, width, height }, viewport.value, dimensions.value))
+    void setCenter(x + width / 2, y + height / 2, { zoom: viewport.value.zoom, duration: 200 })
 }
 </script>
 
@@ -338,16 +211,12 @@ function onGraphFocusin(event: FocusEvent) {
         </template>
 
         <template #node-insert="{ data }: NodeProps<InsertNodeData>">
-          <button
-            type="button"
-            :aria-label="insertLabel(data.parentId)"
-            :aria-expanded="createParentId === data.parentId"
-            :style="insertButtonStyle(data)"
-            class="nodrag flex size-7 items-center justify-center rounded-full border bg-white hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          <InsertButton
+            :label="insertLabel(data.parentId)"
+            :color="data.color"
+            :active="createParentId === data.parentId"
             @click="openCreate(data.parentId)"
-          >
-            <i class="pi pi-plus text-xs" />
-          </button>
+          />
         </template>
 
         <template #node-dateTimeConnector="{ data }: NodeProps<FlowNodeData<'dateTimeConnector'>>">

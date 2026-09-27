@@ -1,8 +1,8 @@
 import type { FlowItem } from '../types'
+import type { ContentItem } from '../utils/nodeMeta'
 import { defineStore } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
-
-export type ContentItem = Extract<FlowItem, { type: 'sendMessage' | 'addComment' | 'dateTime' }>
+import { isContentItem } from '../utils/nodeMeta'
 
 export interface ItemPatch {
   name?: string
@@ -15,10 +15,6 @@ export interface NewNodeInput {
   type: NewNodeType
   name: string
   description?: string
-}
-
-export function isContentItem(item: FlowItem | undefined): item is ContentItem {
-  return item?.type === 'sendMessage' || item?.type === 'addComment' || item?.type === 'dateTime'
 }
 
 const newId = () => crypto.randomUUID()

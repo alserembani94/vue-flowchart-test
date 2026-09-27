@@ -1,6 +1,6 @@
 import type { FlowItem } from '../../types'
 import { describe, expect, it } from 'vitest'
-import { getItemAriaLabel, getItemDisplayName, getItemTitle, isSelectable } from '../../utils/nodeMeta'
+import { getItemAriaLabel, getItemContent, getItemDisplayName, getItemTitle, isContentItem, isSelectable } from '../../utils/nodeMeta'
 import { flowItems } from '../fixtures/flowItems'
 
 const [trigger, dateTime, connector, message] = flowItems as [FlowItem, FlowItem, FlowItem, FlowItem]
@@ -14,6 +14,31 @@ describe('isSelectable', () => {
 
   it('rejects a missing item', () => {
     expect(isSelectable(undefined)).toBe(false)
+  })
+})
+
+describe('isContentItem', () => {
+  it('accepts items that have a title and description', () => {
+    expect([dateTime, message].map(isContentItem)).toEqual([true, true])
+  })
+
+  it('rejects the trigger, connectors and missing items', () => {
+    expect([trigger, connector, undefined].map(isContentItem)).toEqual([false, false, false])
+  })
+})
+
+describe('getItemContent', () => {
+  it('returns the title and description', () => {
+    expect(getItemContent(dateTime)).toEqual({ title: 'Business Hours', description: 'Routes by office hours' })
+  })
+
+  it('uses an empty description when there is none', () => {
+    expect(getItemContent(message)).toEqual({ title: 'Welcome Message', description: '' })
+  })
+
+  it('returns null for items without content', () => {
+    expect(getItemContent(trigger)).toBeNull()
+    expect(getItemContent(undefined)).toBeNull()
   })
 })
 
