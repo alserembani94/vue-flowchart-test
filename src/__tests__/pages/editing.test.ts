@@ -25,7 +25,7 @@ async function fillAndSubmit(user: Page['user'], { type, title, description = ''
   await user.selectOptions(typeSelect(), type)
   await user.type(titleInput(), title)
   if (description)
-    await user.type(screen.getByRole('textbox', { name: 'Description' }), description)
+    await user.type(screen.getByRole('textbox', { name: 'Description (optional)' }), description)
   await user.click(screen.getByRole('button', { name: 'Add new node' }))
 }
 

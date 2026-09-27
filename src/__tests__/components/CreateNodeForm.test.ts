@@ -60,7 +60,7 @@ describe('createNodeForm', () => {
     const { user, view } = renderForm()
     await user.selectOptions(typeSelect(), 'addComment')
     await user.type(titleInput(), ' Follow up ')
-    await user.type(screen.getByRole('textbox', { name: 'Description' }), 'Later')
+    await user.type(screen.getByRole('textbox', { name: 'Description (optional)' }), 'Later')
 
     await user.click(submit())
 

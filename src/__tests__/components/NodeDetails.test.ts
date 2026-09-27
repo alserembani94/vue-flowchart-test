@@ -43,7 +43,7 @@ afterEach(() => {
 
 const renderDetails = (item: FlowItem) => render(NodeDetails, { props: { item } })
 const titleInput = () => screen.getByRole('textbox', { name: 'Title' })
-const descriptionInput = () => screen.getByRole('textbox', { name: 'Description' })
+const descriptionInput = () => screen.getByRole('textbox', { name: 'Description (optional)' })
 
 describe('content by type', () => {
   it('shows the trigger\'s settings, without title, description or delete', () => {
@@ -69,7 +69,7 @@ describe('content by type', () => {
   it('shows the comment in an editable field', () => {
     renderDetails(comment)
 
-    expect(screen.getByRole('textbox', { name: 'Comment' })).toHaveValue('Off hours message')
+    expect(screen.getByRole('textbox', { name: 'Comment (optional)' })).toHaveValue('Off hours message')
   })
 
   it('shows the business hours schedule', () => {
@@ -154,7 +154,7 @@ describe('editing', () => {
 })
 
 describe('editing the comment', () => {
-  const commentInput = () => screen.getByRole('textbox', { name: 'Comment' })
+  const commentInput = () => screen.getByRole('textbox', { name: 'Comment (optional)' })
 
   it('emits the comment after the debounce', async () => {
     const view = renderDetails(comment)
@@ -180,7 +180,7 @@ describe('editing the comment', () => {
   it('shows the comment field only for comment nodes', () => {
     renderDetails(message)
 
-    expect(screen.queryByRole('textbox', { name: 'Comment' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Comment (optional)' })).not.toBeInTheDocument()
   })
 })
 

@@ -7,6 +7,10 @@ import { INPUT_DEBOUNCE_MS } from '../utils/constants'
 import { getItemContent } from '../utils/nodeMeta'
 import AttachmentTiles from './AttachmentTiles.vue'
 import MessageTexts from './MessageTexts.vue'
+import BaseButton from './ui/BaseButton.vue'
+import BaseInput from './ui/BaseInput.vue'
+import BaseTextarea from './ui/BaseTextarea.vue'
+import FormField from './ui/FormField.vue'
 
 const props = defineProps<{ item: FlowItem }>()
 
@@ -91,8 +95,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 defineExpose({ hasUnsavedChanges })
 
 const confirmingDelete = ref(false)
-const deleteButton = ref<HTMLButtonElement | null>(null)
-const cancelDeleteButton = ref<HTMLButtonElement | null>(null)
+const deleteButton = ref<InstanceType<typeof BaseButton> | null>(null)
+const cancelDeleteButton = ref<InstanceType<typeof BaseButton> | null>(null)
 
 async function startDelete() {
   confirmingDelete.value = true
@@ -141,38 +145,28 @@ const TRIGGER_LABELS = {
 <template>
   <div class="flex flex-col gap-6 text-sm">
     <section v-if="content" class="flex flex-col gap-3">
-      <div class="flex flex-col gap-1">
-        <label for="node-title" class="flex flex-col gap-1">
-          <span class="text-gray-500">Title</span>
-          <input
-            id="node-title"
-            v-model="titleDraft"
-            name="title"
-            type="text"
-            required
-            :aria-invalid="titleInvalid"
-            :aria-describedby="titleInvalid ? 'node-title-error' : undefined"
-            class="rounded-lg border px-3 py-2"
-            :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
-            @input="onTitleInput"
-            @blur="onTitleBlur"
-          >
-        </label>
-        <span v-if="titleInvalid" id="node-title-error" class="text-red-600">Title is required</span>
-      </div>
-      <label for="node-description" class="flex flex-col gap-1">
-        <span class="text-gray-500">Description</span>
-        <textarea
-          id="node-description"
+      <FormField v-slot="field" label="Title" :error="titleInvalid ? 'Title is required' : undefined">
+        <BaseInput
+          v-bind="field"
+          v-model="titleDraft"
+          name="title"
+          type="text"
+          required
+          @input="onTitleInput"
+          @blur="onTitleBlur"
+        />
+      </FormField>
+      <FormField v-slot="field" label="Description" optional>
+        <BaseTextarea
+          v-bind="field"
           v-model="descriptionDraft"
           name="description"
           rows="3"
           placeholder="No description"
-          class="rounded-lg border border-gray-200 px-3 py-2"
           @input="onDescriptionInput"
           @blur="flush"
         />
-      </label>
+      </FormField>
     </section>
 
     <dl v-if="props.item.type === 'trigger'" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
@@ -196,19 +190,17 @@ const TRIGGER_LABELS = {
       />
     </template>
 
-    <label v-else-if="props.item.type === 'addComment'" for="node-comment" class="flex flex-col gap-1">
-      <span class="text-gray-500">Comment</span>
-      <textarea
-        id="node-comment"
+    <FormField v-else-if="props.item.type === 'addComment'" v-slot="field" label="Comment" optional>
+      <BaseTextarea
+        v-bind="field"
         v-model="commentDraft"
         name="comment"
         rows="4"
         placeholder="No comment"
-        class="rounded-lg border border-gray-200 px-3 py-2"
         @input="onCommentInput"
         @blur="flush"
       />
-    </label>
+    </FormField>
 
     <template v-else-if="props.item.type === 'dateTime'">
       <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
@@ -258,31 +250,26 @@ const TRIGGER_LABELS = {
     </template>
 
     <section v-if="content" class="border-t border-gray-200 pt-4">
-      <button
+      <BaseButton
         v-if="!confirmingDelete"
         ref="deleteButton"
-        type="button"
-        class="rounded-lg px-3 py-2 text-red-600 hover:bg-red-50"
+        variant="ghost-danger"
+        icon="pi pi-trash"
         @click="startDelete"
       >
-        <i class="pi pi-trash" /> Delete node
-      </button>
+        Delete node
+      </BaseButton>
       <div v-else role="group" aria-labelledby="delete-confirm-text" class="flex flex-col gap-2 rounded-lg bg-red-50 p-3">
         <p id="delete-confirm-text">
           Delete this node? Its children will move up to its parent.
         </p>
         <div class="flex gap-2">
-          <button type="button" class="rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700" @click="confirmDelete">
+          <BaseButton variant="danger" @click="confirmDelete">
             Delete
-          </button>
-          <button
-            ref="cancelDeleteButton"
-            type="button"
-            class="rounded-lg border border-gray-200 bg-white px-3 py-2 hover:bg-gray-50"
-            @click="cancelDelete"
-          >
+          </BaseButton>
+          <BaseButton ref="cancelDeleteButton" @click="cancelDelete">
             Cancel
-          </button>
+          </BaseButton>
         </div>
       </div>
     </section>

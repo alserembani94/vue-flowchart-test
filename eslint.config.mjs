@@ -13,4 +13,10 @@ export default antfu({
     markdown: 'prettier',
   },
   ignores: ['typed-router.d.ts'],
+}, {
+  files: ['src/components/ui/**/*.vue'],
+  rules: {
+    'vue-a11y/form-control-has-label': 'off',
+    'vue-a11y/label-has-for': 'off',
+  },
 })

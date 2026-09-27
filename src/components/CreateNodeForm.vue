@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { NewNodeInput, NewNodeType } from '../stores/flow'
 import { computed, nextTick, ref } from 'vue'
+import BaseButton from './ui/BaseButton.vue'
+import BaseInput from './ui/BaseInput.vue'
+import BaseSelect from './ui/BaseSelect.vue'
+import BaseTextarea from './ui/BaseTextarea.vue'
+import FormField from './ui/FormField.vue'
 
 const props = defineProps<{
   afterName: string
@@ -27,8 +32,14 @@ const submitted = ref(false)
 const typeInvalid = computed(() => submitted.value && !type.value)
 const titleInvalid = computed(() => submitted.value && !title.value.trim())
 
-const typeSelect = ref<HTMLSelectElement | null>(null)
-const titleInput = ref<HTMLInputElement | null>(null)
+const typeSelect = ref<InstanceType<typeof BaseSelect> | null>(null)
+const titleInput = ref<InstanceType<typeof BaseInput> | null>(null)
+
+const businessHoursNote = computed(() =>
+  type.value === 'businessHours' && props.hasNextSteps
+    ? 'The steps after this point will move under its Success branch.'
+    : undefined,
+)
 
 async function onSubmit() {
   submitted.value = true
@@ -56,73 +67,37 @@ async function onSubmit() {
       <span class="min-w-0 truncate font-medium">{{ props.afterName }}</span>
     </p>
 
-    <div class="flex flex-col gap-1">
-      <label for="create-type" class="flex flex-col gap-1">
-        <span class="text-gray-500">Type of node</span>
-        <select
-          id="create-type"
-          ref="typeSelect"
-          v-model="type"
-          name="type"
-          required
-          :aria-invalid="typeInvalid"
-          :aria-describedby="typeInvalid ? 'create-type-error' : undefined"
-          class="rounded-lg border bg-white px-3 py-2"
-          :class="typeInvalid ? 'border-red-500' : 'border-gray-200'"
-        >
-          <option value="" disabled>Select a type</option>
-          <option v-for="option in TYPE_OPTIONS" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
-      <span v-if="typeInvalid" id="create-type-error" class="text-red-600">Type of node is required</span>
-      <span v-if="type === 'businessHours' && props.hasNextSteps" class="text-gray-500">
-        The steps after this point will move under its Success branch.
-      </span>
-    </div>
+    <FormField
+      v-slot="field"
+      label="Type of node"
+      :error="typeInvalid ? 'Type of node is required' : undefined"
+      :hint="businessHoursNote"
+    >
+      <BaseSelect ref="typeSelect" v-bind="field" v-model="type" name="type" required>
+        <option value="" disabled>
+          Select a type
+        </option>
+        <option v-for="option in TYPE_OPTIONS" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </option>
+      </BaseSelect>
+    </FormField>
 
-    <div class="flex flex-col gap-1">
-      <label for="create-title" class="flex flex-col gap-1">
-        <span class="text-gray-500">Title</span>
-        <input
-          id="create-title"
-          ref="titleInput"
-          v-model="title"
-          name="title"
-          type="text"
-          required
-          :aria-invalid="titleInvalid"
-          :aria-describedby="titleInvalid ? 'create-title-error' : undefined"
-          class="rounded-lg border px-3 py-2"
-          :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
-        >
-      </label>
-      <span v-if="titleInvalid" id="create-title-error" class="text-red-600">Title is required</span>
-    </div>
+    <FormField v-slot="field" label="Title" :error="titleInvalid ? 'Title is required' : undefined">
+      <BaseInput ref="titleInput" v-bind="field" v-model="title" name="title" type="text" required />
+    </FormField>
 
-    <label for="create-description" class="flex flex-col gap-1">
-      <span class="text-gray-500">Description</span>
-      <textarea
-        id="create-description"
-        v-model="description"
-        name="description"
-        rows="3"
-        class="rounded-lg border border-gray-200 px-3 py-2"
-      />
-    </label>
+    <FormField v-slot="field" label="Description" optional>
+      <BaseTextarea v-bind="field" v-model="description" name="description" rows="3" />
+    </FormField>
 
     <div class="flex gap-2 pt-2">
-      <button type="submit" class="rounded-lg bg-gray-900 px-3 py-2 text-white hover:bg-gray-700">
+      <BaseButton type="submit" variant="primary">
         Add new node
-      </button>
-      <button
-        type="button"
-        class="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50"
-        @click="emit('cancel')"
-      >
+      </BaseButton>
+      <BaseButton @click="emit('cancel')">
         Cancel
-      </button>
+      </BaseButton>
     </div>
   </form>
 </template>

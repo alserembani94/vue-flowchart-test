@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import BaseButton from './ui/BaseButton.vue'
 
 const props = defineProps<{
   open: boolean
@@ -41,14 +42,7 @@ defineExpose({ focus })
             {{ props.title }}
           </slot>
         </h2>
-        <button
-          type="button"
-          aria-label="Close"
-          class="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-          @click="emit('close')"
-        >
-          <i class="pi pi-times" />
-        </button>
+        <BaseButton variant="ghost" icon="pi pi-times" icon-only label="Close" @click="emit('close')" />
       </header>
 
       <div class="flex-1 overflow-y-auto p-4">

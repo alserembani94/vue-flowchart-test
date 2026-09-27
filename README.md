@@ -47,6 +47,7 @@ The project started as a frontend assessment, and its look is based on the desig
 ├── src/
 │   ├── pages/         # Pages. Each file becomes a route (index.vue is "/")
 │   ├── components/    # UI components: node card, drawer, node details, message editor, create form
+│   │   └── ui/        # Shared building blocks: button, input, textarea, select, form field
 │   ├── composables/   # Reusable logic: graph building, layout, selection, message drafts
 │   ├── stores/        # Pinia store that holds the flow and all edits
 │   ├── utils/         # Plain functions: graph data, node metadata, attachments, viewport, constants
@@ -88,6 +89,12 @@ The project started as a frontend assessment, and its look is based on the desig
 ### Styling
 
 Tailwind provides the utility classes, and the components use them to build their own look based on the assessment PDF. Each node type's color and icon are defined once in `NODE_META` (`src/utils/nodeMeta.ts`). The card, its edges, its selected and focus rings, and its **+** button all read from there, so a type always looks the same everywhere. Icons come from PrimeIcons.
+
+Buttons and form fields come from shared components in `src/components/ui/`, so they look and behave the same everywhere:
+
+- **`BaseButton`** has five variants: `primary`, `secondary` (the default), `danger`, `ghost`, and `ghost-danger`. It can show a leading icon, or be icon-only with a required label. Every variant has the same focus ring and disabled style.
+- **`BaseInput`, `BaseTextarea`, and `BaseSelect`** share one look, a focus style, and an `invalid` state that sets both the red border and `aria-invalid`. `BaseTextarea` can grow with its content up to a set number of rows.
+- **`FormField`** adds the label, error, and hint around a field and links them to it. Optional fields say "(optional)" in their label, so required is the default and nothing needs a separate marker.
 
 ### Architecture
 
