@@ -5,17 +5,17 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
 
+    "noFallthroughCasesInSwitch": true,
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "erasableSyntaxOnly": true
   },
   "vueCompilerOptions": {
     "plugins": [
       "vue-router/volar/sfc-route-blocks",
-      "vue-router/volar/sfc-typed-router",
-    ],
+      "vue-router/volar/sfc-typed-router"
+    ]
   },
   "include": [
     "src/**/*.ts",

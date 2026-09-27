@@ -5,4 +5,4 @@
 @import '@vue-flow/core/dist/theme-default.css';
 
 /* this is for Tailwind CSS */
-@import "tailwindcss";
+@import 'tailwindcss';

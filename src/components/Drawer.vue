@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref } from 'vue'
 
 const props = defineProps<{
-  open: boolean;
-  title?: string;
-  describedby?: string;
-}>();
+  open: boolean
+  title?: string
+  describedby?: string
+}>()
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: [] }>()
 
-const panel = ref<HTMLElement | null>(null);
+const panel = ref<HTMLElement | null>(null)
 
 function focus() {
-  panel.value?.focus({ preventScroll: true });
+  panel.value?.focus({ preventScroll: true })
 }
 
-defineExpose({ focus });
+defineExpose({ focus })
 </script>
 
 <template>
@@ -25,6 +25,7 @@ defineExpose({ focus });
     leave-to-class="translate-x-full"
     leave-active-class="transition-transform duration-150 ease-in"
   >
+    <!-- eslint-disable-next-line vue-a11y/no-static-element-interactions -- closes on Escape pressed anywhere inside the panel -->
     <aside
       v-if="props.open"
       ref="panel"
@@ -36,7 +37,9 @@ defineExpose({ focus });
     >
       <header class="flex items-center justify-between gap-2 p-4 border-b border-gray-200">
         <h2 id="drawer-title" class="font-semibold min-w-0">
-          <slot name="title">{{ props.title }}</slot>
+          <slot name="title">
+            {{ props.title }}
+          </slot>
         </h2>
         <button
           type="button"
@@ -44,7 +47,7 @@ defineExpose({ focus });
           class="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           @click="emit('close')"
         >
-          <i class="pi pi-times"></i>
+          <i class="pi pi-times" />
         </button>
       </header>
 

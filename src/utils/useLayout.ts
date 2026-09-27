@@ -1,62 +1,67 @@
-import dagre from "@dagrejs/dagre";
-import { Position, useVueFlow, type Edge, type Node } from "@vue-flow/core";
-import { ref, shallowRef } from "vue";
+import type { Edge, Node } from '@vue-flow/core'
+import dagre from '@dagrejs/dagre'
+import { Position, useVueFlow } from '@vue-flow/core'
+import { ref, shallowRef } from 'vue'
 
-export type LayoutDirection = "LR" | "RL" | "TB" | "BT";
+export type LayoutDirection = 'LR' | 'RL' | 'TB' | 'BT'
 
-const DEFAULT_NODE_WIDTH = 150;
-const DEFAULT_NODE_HEIGHT = 50;
+interface DagreNodeBox { x: number, y: number, width: number, height: number }
+
+const DEFAULT_NODE_WIDTH = 150
+const DEFAULT_NODE_HEIGHT = 50
 
 export function useLayout() {
-  const { findNode } = useVueFlow();
+  const { findNode } = useVueFlow()
 
-  const graph = shallowRef(new dagre.graphlib.Graph());
+  const graph = shallowRef(new dagre.graphlib.Graph())
 
-  const previousDirection = ref<LayoutDirection>("LR");
+  const previousDirection = ref<LayoutDirection>('LR')
 
   function layout<T extends Node>(
     nodes: T[],
     edges: Edge[],
     direction: LayoutDirection,
   ): T[] {
-    const dagreGraph = new dagre.graphlib.Graph();
+    const dagreGraph = new dagre.graphlib.Graph()
 
-    graph.value = dagreGraph;
+    graph.value = dagreGraph
 
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    dagreGraph.setDefaultEdgeLabel(() => ({}))
 
-    const isHorizontal = direction === "LR" || direction === "RL";
-    dagreGraph.setGraph({ rankdir: direction });
+    const isHorizontal = direction === 'LR' || direction === 'RL'
+    dagreGraph.setGraph({ rankdir: direction })
 
-    previousDirection.value = direction;
+    previousDirection.value = direction
 
     for (const node of nodes) {
-      const graphNode = findNode(node.id);
+      const { width = 0, height = 0 } = findNode(node.id)?.dimensions ?? {}
 
       dagreGraph.setNode(node.id, {
-        width: graphNode?.dimensions.width || DEFAULT_NODE_WIDTH,
-        height: graphNode?.dimensions.height || DEFAULT_NODE_HEIGHT,
-      });
+        width: width > 0 ? width : DEFAULT_NODE_WIDTH,
+        height: height > 0 ? height : DEFAULT_NODE_HEIGHT,
+      })
     }
 
     for (const edge of edges) {
-      dagreGraph.setEdge(edge.source, edge.target);
+      dagreGraph.setEdge(edge.source, edge.target)
     }
 
-    dagre.layout(dagreGraph);
+    dagre.layout(dagreGraph)
 
-    const rankSize = new Map<number, number>();
+    const positionOf = (id: string) => dagreGraph.node(id) as DagreNodeBox
+
+    const rankSize = new Map<number, number>()
     for (const id of dagreGraph.nodes()) {
-      const { x, y, width, height } = dagreGraph.node(id);
-      const rank = isHorizontal ? x : y;
+      const { x, y, width, height } = positionOf(id)
+      const rank = isHorizontal ? x : y
       rankSize.set(
         rank,
         Math.max(rankSize.get(rank) ?? 0, isHorizontal ? width : height),
-      );
+      )
     }
 
     return nodes.map((node) => {
-      const { x, y, width, height } = dagreGraph.node(node.id);
+      const { x, y, width, height } = positionOf(node.id)
 
       return {
         ...node,
@@ -65,9 +70,9 @@ export function useLayout() {
         position: isHorizontal
           ? { x: x - rankSize.get(x)! / 2, y: y - height / 2 }
           : { x: x - width / 2, y: y - rankSize.get(y)! / 2 },
-      };
-    });
+      }
+    })
   }
 
-  return { graph, layout, previousDirection };
+  return { graph, layout, previousDirection }
 }

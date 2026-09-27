@@ -1,85 +1,89 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import type { FlowItem } from '../types';
-import { isContentItem, type ItemPatch } from '../stores/flow';
-import { INPUT_DEBOUNCE_MS } from '../utils/constants';
+import type { ItemPatch } from '../stores/flow'
+import type { FlowItem } from '../types'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { isContentItem } from '../stores/flow'
+import { INPUT_DEBOUNCE_MS } from '../utils/constants'
 
-const props = defineProps<{ item: FlowItem }>();
+const props = defineProps<{ item: FlowItem }>()
 
 const emit = defineEmits<{
-  update: [id: string, patch: ItemPatch];
-  delete: [id: string];
-}>();
+  update: [id: string, patch: ItemPatch]
+  delete: [id: string]
+}>()
 
 const content = computed(() => {
-  const { item } = props;
-  return isContentItem(item) ? { title: item.name, description: item.data.description ?? '' } : null;
-});
+  const { item } = props
+  return isContentItem(item) ? { title: item.name, description: item.data.description ?? '' } : null
+})
 
-const titleDraft = ref('');
-const descriptionDraft = ref('');
-const titleInvalid = computed(() => !titleDraft.value.trim());
+const titleDraft = ref('')
+const descriptionDraft = ref('')
+const titleInvalid = computed(() => !titleDraft.value.trim())
 
-let pending: { id: string; patch: ItemPatch } | null = null;
-let timer: ReturnType<typeof setTimeout> | undefined;
+let pending: { id: string, patch: ItemPatch } | null = null
+let timer: ReturnType<typeof setTimeout> | undefined
 
 function flush() {
-  clearTimeout(timer);
-  if (pending) emit('update', pending.id, pending.patch);
-  pending = null;
+  clearTimeout(timer)
+  if (pending)
+    emit('update', pending.id, pending.patch)
+  pending = null
 }
 
 function schedule(patch: ItemPatch) {
-  const base = pending?.patch ?? {};
-  const data = base.data || patch.data ? { ...base.data, ...patch.data } : undefined;
-  pending = { id: props.item.id.toString(), patch: { ...base, ...patch, data } };
-  clearTimeout(timer);
-  timer = setTimeout(flush, INPUT_DEBOUNCE_MS);
+  const base = pending?.patch ?? {}
+  const data = base.data || patch.data ? { ...base.data, ...patch.data } : undefined
+  pending = { id: props.item.id.toString(), patch: { ...base, ...patch, data } }
+  clearTimeout(timer)
+  timer = setTimeout(flush, INPUT_DEBOUNCE_MS)
 }
 
 function onTitleInput() {
-  if (!titleInvalid.value) schedule({ name: titleDraft.value });
+  if (!titleInvalid.value)
+    schedule({ name: titleDraft.value })
 }
 
 function onTitleBlur() {
-  if (titleInvalid.value) titleDraft.value = content.value?.title ?? '';
-  flush();
+  if (titleInvalid.value)
+    titleDraft.value = content.value?.title ?? ''
+  flush()
 }
 
 function onDescriptionInput() {
-  schedule({ data: { description: descriptionDraft.value } });
+  schedule({ data: { description: descriptionDraft.value } })
 }
 
-const confirmingDelete = ref(false);
-const deleteButton = ref<HTMLButtonElement | null>(null);
-const cancelDeleteButton = ref<HTMLButtonElement | null>(null);
+const confirmingDelete = ref(false)
+const deleteButton = ref<HTMLButtonElement | null>(null)
+const cancelDeleteButton = ref<HTMLButtonElement | null>(null)
 
 async function startDelete() {
-  confirmingDelete.value = true;
-  await nextTick();
-  cancelDeleteButton.value?.focus();
+  confirmingDelete.value = true
+  await nextTick()
+  cancelDeleteButton.value?.focus()
 }
 
 async function cancelDelete() {
-  confirmingDelete.value = false;
-  await nextTick();
-  deleteButton.value?.focus();
+  confirmingDelete.value = false
+  await nextTick()
+  deleteButton.value?.focus()
 }
 
 function confirmDelete() {
-  clearTimeout(timer);
-  pending = null;
-  emit('delete', props.item.id.toString());
+  clearTimeout(timer)
+  pending = null
+  emit('delete', props.item.id.toString())
 }
 
 watch(() => props.item.id, () => {
-  flush();
-  confirmingDelete.value = false;
-  titleDraft.value = content.value?.title ?? '';
-  descriptionDraft.value = content.value?.description ?? '';
-}, { immediate: true, flush: 'sync' });
+  flush()
+  confirmingDelete.value = false
+  titleDraft.value = content.value?.title ?? ''
+  descriptionDraft.value = content.value?.description ?? ''
+}, { immediate: true, flush: 'sync' })
 
-onBeforeUnmount(flush);
+onBeforeUnmount(flush)
 
 const DAY_LABELS = {
   mon: 'Monday',
@@ -89,29 +93,21 @@ const DAY_LABELS = {
   fri: 'Friday',
   sat: 'Saturday',
   sun: 'Sunday',
-} as const;
+} as const
 
 const TRIGGER_LABELS = {
   conversationOpened: 'Conversation Opened',
-} as const;
+} as const
 </script>
-
-<style scoped>
-@reference "../style.css";
-
-dl > dt {
-  @apply text-gray-500;
-}
-</style>
 
 <template>
   <div class="flex flex-col gap-6 text-sm">
-
     <section v-if="content" class="flex flex-col gap-3">
       <div class="flex flex-col gap-1">
-        <label class="flex flex-col gap-1">
+        <label for="node-title" class="flex flex-col gap-1">
           <span class="text-gray-500">Title</span>
           <input
+            id="node-title"
             v-model="titleDraft"
             name="title"
             type="text"
@@ -122,13 +118,14 @@ dl > dt {
             :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
             @input="onTitleInput"
             @blur="onTitleBlur"
-          />
+          >
         </label>
         <span v-if="titleInvalid" id="node-title-error" class="text-red-600">Title is required</span>
       </div>
-      <label class="flex flex-col gap-1">
+      <label for="node-description" class="flex flex-col gap-1">
         <span class="text-gray-500">Description</span>
         <textarea
+          id="node-description"
           v-model="descriptionDraft"
           name="description"
           rows="3"
@@ -136,7 +133,7 @@ dl > dt {
           class="rounded-lg border border-gray-200 px-3 py-2"
           @input="onDescriptionInput"
           @blur="flush"
-        ></textarea>
+        />
       </label>
     </section>
 
@@ -148,20 +145,26 @@ dl > dt {
     </dl>
 
     <section v-else-if="props.item.type === 'sendMessage'" class="flex flex-col gap-2">
-      <h3 class="font-medium text-gray-500">Messages</h3>
+      <h3 class="font-medium text-gray-500">
+        Messages
+      </h3>
       <template v-for="(payload, index) in props.item.data.payload" :key="index">
         <p v-if="payload.type === 'text'" class="whitespace-pre-line rounded-lg bg-emerald-50 p-3">
           {{ payload.text }}
         </p>
         <a v-else :href="payload.attachment" target="_blank" rel="noopener noreferrer" class="block">
-          <img :src="payload.attachment" alt="Message attachment" loading="lazy" class="rounded-lg border border-gray-200" />
+          <img :src="payload.attachment" alt="Message attachment" loading="lazy" class="rounded-lg border border-gray-200">
         </a>
       </template>
     </section>
 
     <section v-else-if="props.item.type === 'addComment'" class="flex flex-col gap-2">
-      <h3 class="font-medium text-gray-500">Comment</h3>
-      <p class="whitespace-pre-line rounded-lg bg-sky-50 p-3">{{ props.item.data.comment }}</p>
+      <h3 class="font-medium text-gray-500">
+        Comment
+      </h3>
+      <p class="whitespace-pre-line rounded-lg bg-sky-50 p-3">
+        {{ props.item.data.comment }}
+      </p>
     </section>
 
     <template v-else-if="props.item.type === 'dateTime'">
@@ -177,20 +180,34 @@ dl > dt {
       </dl>
 
       <section class="flex flex-col gap-2">
-        <h3 class="font-medium text-gray-500">Schedule</h3>
+        <h3 class="font-medium text-gray-500">
+          Schedule
+        </h3>
         <table class="w-full">
           <thead class="text-left text-gray-500">
             <tr>
-              <th class="font-normal py-1">Day</th>
-              <th class="font-normal py-1">Start</th>
-              <th class="font-normal py-1">End</th>
+              <th class="font-normal py-1">
+                Day
+              </th>
+              <th class="font-normal py-1">
+                Start
+              </th>
+              <th class="font-normal py-1">
+                End
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="time in props.item.data.times" :key="time.day" class="border-t border-gray-100">
-              <td class="py-1">{{ DAY_LABELS[time.day] }}</td>
-              <td class="py-1">{{ time.startTime }}</td>
-              <td class="py-1">{{ time.endTime }}</td>
+              <td class="py-1">
+                {{ DAY_LABELS[time.day] }}
+              </td>
+              <td class="py-1">
+                {{ time.startTime }}
+              </td>
+              <td class="py-1">
+                {{ time.endTime }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -205,10 +222,12 @@ dl > dt {
         class="rounded-lg px-3 py-2 text-red-600 hover:bg-red-50"
         @click="startDelete"
       >
-        <i class="pi pi-trash"></i> Delete node
+        <i class="pi pi-trash" /> Delete node
       </button>
       <div v-else role="group" aria-labelledby="delete-confirm-text" class="flex flex-col gap-2 rounded-lg bg-red-50 p-3">
-        <p id="delete-confirm-text">Delete this node? Its children will move up to its parent.</p>
+        <p id="delete-confirm-text">
+          Delete this node? Its children will move up to its parent.
+        </p>
         <div class="flex gap-2">
           <button type="button" class="rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700" @click="confirmDelete">
             Delete
@@ -227,9 +246,18 @@ dl > dt {
 
     <!-- TODO: Remove this after done with development -->
     <details class="rounded-lg border border-gray-200">
-      <summary class="cursor-pointer p-2 text-gray-500">Raw data</summary>
+      <summary class="cursor-pointer p-2 text-gray-500">
+        Raw data
+      </summary>
       <pre class="overflow-x-auto border-t border-gray-200 p-2 text-xs">{{ JSON.stringify(props.item, null, 2) }}</pre>
     </details>
-
   </div>
 </template>
+
+<style scoped>
+@reference "../style.css";
+
+dl > dt {
+  @apply text-gray-500;
+}
+</style>

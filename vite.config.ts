@@ -1,9 +1,8 @@
-/// <reference types="vitest/config" />
-import vue from "@vitejs/plugin-vue";
-import vueRouter from "vue-router/vite";
-import tailwindcss from "@tailwindcss/vite";
+import tailwindcss from '@tailwindcss/vite'
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vitest/config'
 
-import { defineConfig } from "vite";
+import vueRouter from 'vue-router/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -11,22 +10,22 @@ export default defineConfig({
   server: {
     proxy: {
       // This is to bypass CORS, in production, should set it in bucket policy
-      "/api/processes": {
+      '/api/processes': {
         target:
-          "https://respond-io-fe-bucket.s3.ap-southeast-1.amazonaws.com/candidate-assessments/payload.json",
+          'https://respond-io-fe-bucket.s3.ap-southeast-1.amazonaws.com/candidate-assessments/payload.json',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api\/processes/, ""),
+        rewrite: path => path.replace(/^\/api\/processes/, ''),
       },
     },
   },
   test: {
     globals: true,
-    environment: "node",
-    setupFiles: ["src/__tests__/setup.ts"],
+    environment: 'node',
+    setupFiles: ['src/__tests__/setup.ts'],
     include: [
-      "src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
-      "src/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}",
+      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      'src/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
     ],
   },
-});
+})
