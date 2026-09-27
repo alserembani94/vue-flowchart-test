@@ -25,7 +25,8 @@ const meta = computed(() => NODE_META[props.type]);
     </div>
     <hr class="border-gray-200" />
     <div class="p-2">
-      <p class="line-clamp-3 wrap-break-word">{{ props.description }}</p>
+      <p v-if="props.description" class="line-clamp-3 wrap-break-word">{{ props.description }}</p>
+      <p v-else class="text-gray-400 italic">No description</p>
     </div>
   </div>
 </template>

@@ -17,6 +17,7 @@ export const flowItems: FlowItem[] = [
       connectors: ["161f52"],
       timezone: "UTC",
       action: "businessHours",
+      description: "Routes by office hours",
     },
   },
   {

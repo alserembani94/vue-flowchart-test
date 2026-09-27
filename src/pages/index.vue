@@ -6,24 +6,34 @@ import { useRoute, useRouter } from 'vue-router';
 import { computeGraph } from '../utils/computeGraph';
 import { useVueFlow, VueFlow, type Edge, type Node, type NodeChange, type NodeMouseEvent, type NodeProps } from '@vue-flow/core'
 import { useLayout, type LayoutDirection } from '../utils/useLayout';
-import { NODE_META, getItemTitle, isSelectable } from '../utils/nodeMeta';
-import { getMessagePreview } from '../utils/getMessagePreview';
+import { NODE_META, isSelectable } from '../utils/nodeMeta';
+import { useFlowStore } from '../stores/flow';
 import type { FlowNodeData } from '../types';
 import NodeCard from '../components/NodeCard.vue';
 import Drawer from '../components/Drawer.vue';
 import NodeDetails from '../components/NodeDetails.vue';
 import { Background } from '@vue-flow/background'
 
+const CARD_TYPES = ['sendMessage', 'addComment', 'dateTime'] as const;
+type CardType = (typeof CARD_TYPES)[number];
+
+const flow = useFlowStore();
+
 const { data } = useQuery({
   queryKey: ['processes'],
   queryFn: getProcesses,
+  staleTime: Infinity,
 })
+
+watch(data, (processes) => {
+  if (processes && !flow.loaded) flow.setItems(processes);
+}, { immediate: true });
 
 const nodes = shallowRef<Node[]>([]);
 const edges = shallowRef<Edge[]>([]);
 
-watch(data, (processes) => {
-  const graph = computeGraph(processes ?? []);
+watch(() => flow.items, (items) => {
+  const graph = computeGraph(items);
   nodes.value = graph.nodes;
   edges.value = graph.edges;
 }, { immediate: true });
@@ -55,17 +65,13 @@ const selectedId = computed<string | null>({
   },
 });
 
-const itemsById = computed(
-  () => new Map((data.value ?? []).map((item) => [item.id.toString(), item])),
-);
-
 const selectedItem = computed(() => {
-  const item = selectedId.value ? itemsById.value.get(selectedId.value) : undefined;
+  const item = selectedId.value ? flow.itemsById.get(selectedId.value) : undefined;
   return isSelectable(item) ? item : null;
 });
 
-watch([selectedId, data], ([id, processes]) => {
-  if (id && processes && !selectedItem.value) selectedId.value = null;
+watch([selectedId, () => flow.loaded], ([id, loaded]) => {
+  if (id && loaded && !selectedItem.value) selectedId.value = null;
 });
 
 function syncSelection() {
@@ -81,7 +87,7 @@ watch([selectedId, nodes], syncSelection, { flush: 'post' });
 function onNodesChange(changes: NodeChange[]) {
   const selects = changes.filter((change) => change.type === 'select');
   const selected = selects.find(
-    (change) => change.selected && isSelectable(itemsById.value.get(change.id)),
+    (change) => change.selected && isSelectable(flow.itemsById.get(change.id)),
   );
 
   if (selected) {
@@ -92,7 +98,7 @@ function onNodesChange(changes: NodeChange[]) {
 }
 
 function onNodeClick({ node }: NodeMouseEvent) {
-  if (!isSelectable(itemsById.value.get(node.id))) closeDrawer();
+  if (!isSelectable(flow.itemsById.get(node.id))) closeDrawer();
 }
 
 const drawer = ref<InstanceType<typeof Drawer> | null>(null);
@@ -178,32 +184,16 @@ function onGraphFocusin(event: FocusEvent) {
           }" />
         </template>
 
-        <template #node-sendMessage="{ data, selected }: NodeProps<FlowNodeData<'sendMessage'>>">
+        <template
+          v-for="type in CARD_TYPES"
+          :key="type"
+          #[`node-${type}`]="{ data, selected }: NodeProps<FlowNodeData<CardType>>"
+        >
           <NodeCard v-bind="{
-            type: 'sendMessage',
-            icon: NODE_META.sendMessage.icon,
+            type,
+            icon: NODE_META[type].icon,
             title: data.name,
-            description: `Message: ${getMessagePreview(data.data.payload)}`,
-            selected
-          }" />
-        </template>
-
-        <template #node-addComment="{ data, selected }: NodeProps<FlowNodeData<'addComment'>>">
-          <NodeCard v-bind="{
-            type: 'addComment',
-            icon: NODE_META.addComment.icon,
-            title: data.name,
-            description: data.data.comment,
-            selected
-          }" />
-        </template>
-
-        <template #node-dateTime="{ data, selected }: NodeProps<FlowNodeData<'dateTime'>>">
-          <NodeCard v-bind="{
-            type: 'dateTime',
-            icon: NODE_META.dateTime.icon,
-            title: data.name,
-            description: `${data.name} + ${data.data.timezone}`,
+            description: data.data.description ?? '',
             selected
           }" />
         </template>
@@ -221,7 +211,7 @@ function onGraphFocusin(event: FocusEvent) {
       <template v-if="selectedItem" #title>
         <span class="flex items-center gap-2">
           <i :class="[NODE_META[selectedItem.type].icon, NODE_META[selectedItem.type].text]"></i>
-          <span class="truncate">{{ getItemTitle(selectedItem) }}</span>
+          <span class="truncate">{{ NODE_META[selectedItem.type].label }}</span>
         </span>
       </template>
 

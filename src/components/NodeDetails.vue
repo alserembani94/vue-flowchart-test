@@ -1,7 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { FlowItem } from '../types';
 
 const props = defineProps<{ item: FlowItem }>();
+
+const content = computed(() => {
+  const { item } = props;
+  if (item.type === 'sendMessage' || item.type === 'addComment' || item.type === 'dateTime') {
+    return { title: item.name, description: item.data.description ?? '' };
+  }
+  return null;
+});
 
 const DAY_LABELS = {
   mon: 'Monday',
@@ -28,6 +37,28 @@ dl > dt {
 
 <template>
   <div class="flex flex-col gap-6 text-sm">
+
+    <section v-if="content" class="flex flex-col gap-3">
+      <label class="flex flex-col gap-1">
+        <span class="text-gray-500">Title</span>
+        <input
+          name="title"
+          type="text"
+          :value="content.title"
+          class="rounded-lg border border-gray-200 px-3 py-2"
+        />
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-gray-500">Description</span>
+        <textarea
+          name="description"
+          rows="3"
+          :value="content.description"
+          placeholder="No description"
+          class="rounded-lg border border-gray-200 px-3 py-2"
+        ></textarea>
+      </label>
+    </section>
 
     <dl v-if="props.item.type === 'trigger'" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
       <dt>Trigger</dt>

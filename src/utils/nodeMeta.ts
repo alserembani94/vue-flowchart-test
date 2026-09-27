@@ -39,7 +39,7 @@ export const NODE_META: Record<FlowItem["type"], NodeMeta> = {
     selectable: true,
   },
   dateTime: {
-    label: "Business Hours",
+    label: "Date Time",
     icon: "pi pi-calendar-clock",
     text: "text-orange-600",
     ringSelected: "ring-2 ring-orange-600",

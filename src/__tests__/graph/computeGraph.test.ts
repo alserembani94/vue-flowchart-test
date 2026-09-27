@@ -41,7 +41,7 @@ describe("computeGraph", () => {
   it("gives every node an accessible name", () => {
     expect(nodes.map((node) => node.ariaLabel)).toEqual([
       "Trigger",
-      "Business Hours",
+      "Date Time: Business Hours",
       "Connector",
       "Send Message: Welcome Message",
     ]);

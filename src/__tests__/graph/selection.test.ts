@@ -4,6 +4,7 @@ import { defineComponent, h, type PropType } from "vue";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
+import { createPinia } from "pinia";
 import type { Node } from "@vue-flow/core";
 import IndexPage from "../../pages/index.vue";
 
@@ -16,22 +17,27 @@ const VueFlowStub = defineComponent({
   name: "VueFlow",
   props: { nodes: { type: Array as PropType<Node[]>, default: () => [] } },
   emits: ["nodeClick", "nodesChange", "paneClick", "nodesInitialized"],
-  setup: (props) => () =>
+  setup: (props, { slots }) => () =>
     h(
       "div",
       { "data-test": "vue-flow" },
       props.nodes.map((node) =>
-        h("div", {
-          class: "vue-flow__node",
-          "data-id": node.id,
-          tabindex: node.focusable === false ? undefined : 0,
-        }),
+        h(
+          "div",
+          {
+            class: "vue-flow__node",
+            "data-id": node.id,
+            tabindex: node.focusable === false ? undefined : 0,
+          },
+          slots[`node-${node.type}`]?.({ id: node.id, type: node.type, data: node.data, selected: false }),
+        ),
       ),
     ),
 });
 
 let router: Router;
 let wrapper: VueWrapper;
+let queryClient: QueryClient;
 
 async function mountPage(url = "/") {
   router = createRouter({
@@ -41,14 +47,14 @@ async function mountPage(url = "/") {
   await router.push(url);
   await router.isReady();
 
-  const queryClient = new QueryClient({
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   wrapper = mount(IndexPage, {
     attachTo: document.body,
     global: {
-      plugins: [router, [VueQueryPlugin, { queryClient }]],
+      plugins: [router, createPinia(), [VueQueryPlugin, { queryClient }]],
       stubs: { VueFlow: VueFlowStub },
     },
   });
@@ -91,6 +97,9 @@ async function clickPane() {
 
 const drawer = () => wrapper.find("aside");
 const drawerTitle = () => wrapper.get("#drawer-title").text();
+const titleInput = () => wrapper.get<HTMLInputElement>('aside input[name="title"]').element;
+const descriptionInput = () => wrapper.get<HTMLTextAreaElement>('aside textarea[name="description"]').element;
+const card = (id: string) => wrapper.get(`.vue-flow__node[data-id="${id}"]`);
 const nodeQuery = () => router.currentRoute.value.query.node;
 
 beforeEach(() => {
@@ -115,7 +124,8 @@ describe("selecting nodes", () => {
     await clickNode("d09c08");
 
     expect(nodeQuery()).toBe("d09c08");
-    expect(drawerTitle()).toContain("Business Hours");
+    expect(drawerTitle()).toContain("Date Time");
+    expect(titleInput().value).toBe("Business Hours");
     expect(drawer().text()).toContain("UTC");
   });
 
@@ -125,7 +135,7 @@ describe("selecting nodes", () => {
     await pressEnterOn("b0653a");
 
     expect(nodeQuery()).toBe("b0653a");
-    expect(drawerTitle()).toContain("Welcome Message");
+    expect(titleInput().value).toBe("Welcome Message");
   });
 
   it("swaps the content when another node is clicked while open", async () => {
@@ -135,7 +145,7 @@ describe("selecting nodes", () => {
     await clickNode("b0653a");
 
     expect(nodeQuery()).toBe("b0653a");
-    expect(drawerTitle()).toContain("Welcome Message");
+    expect(titleInput().value).toBe("Welcome Message");
     expect(drawer().text()).toContain("Hello there");
   });
 
@@ -187,7 +197,59 @@ describe("selecting nodes", () => {
     await emitDeselect("d09c08");
 
     expect(nodeQuery()).toBe("b0653a");
-    expect(drawerTitle()).toContain("Welcome Message");
+    expect(titleInput().value).toBe("Welcome Message");
+  });
+});
+
+describe("node content", () => {
+  it("maps each card's title to the item name", async () => {
+    await mountPage();
+
+    expect(card("d09c08").text()).toContain("Business Hours");
+    expect(card("b0653a").text()).toContain("Welcome Message");
+  });
+
+  it("shows the item description on the card", async () => {
+    await mountPage();
+
+    expect(card("d09c08").text()).toContain("Routes by office hours");
+  });
+
+  it("shows a placeholder on the card when there is no description", async () => {
+    await mountPage();
+
+    expect(card("b0653a").text()).toContain("No description");
+  });
+
+  it("shows the type, title and description in the drawer", async () => {
+    await mountPage("/?node=d09c08");
+
+    expect(drawerTitle()).toContain("Date Time");
+    expect(titleInput().value).toBe("Business Hours");
+    expect(descriptionInput().value).toBe("Routes by office hours");
+  });
+
+  it("leaves the description input empty when there is none", async () => {
+    await mountPage("/?node=b0653a");
+
+    expect(drawerTitle()).toContain("Send Message");
+    expect(descriptionInput().value).toBe("");
+  });
+
+  it("has no title or description inputs for the trigger", async () => {
+    await mountPage("/?node=1");
+
+    expect(drawerTitle()).toContain("Trigger");
+    expect(wrapper.find('aside input[name="title"]').exists()).toBe(false);
+  });
+
+  it("keeps the store's items when the query data changes again", async () => {
+    await mountPage();
+
+    queryClient.setQueryData(["processes"], []);
+    await flushPromises();
+
+    expect(card("d09c08").text()).toContain("Business Hours");
   });
 });
 
@@ -324,7 +386,7 @@ describe("deep links", () => {
     await mountPage("/?node=b0653a");
 
     expect(nodeQuery()).toBe("b0653a");
-    expect(drawerTitle()).toContain("Welcome Message");
+    expect(titleInput().value).toBe("Welcome Message");
   });
 
   it("moves focus into the drawer once the data has loaded", async () => {

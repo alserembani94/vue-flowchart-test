@@ -17,6 +17,7 @@ type SendMessageFlowItem = {
   name: string;
   data: {
     payload: SendMessagePayload[];
+    description?: string;
   };
 } & CommonAttrs;
 
@@ -25,6 +26,7 @@ type AddCommentFlowItem = {
   name: string;
   data: {
     comment: string;
+    description?: string;
   };
 } & CommonAttrs;
 
@@ -47,6 +49,7 @@ type DateTimeFlowItem = {
     connectors: FlowItemId[];
     timezone: string;
     action: "businessHours";
+    description?: string;
   };
 } & CommonAttrs;
 
