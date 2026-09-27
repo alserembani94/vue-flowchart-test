@@ -16,6 +16,7 @@ const content = computed(() => getItemContent(props.item))
 
 const titleDraft = ref('')
 const descriptionDraft = ref('')
+const commentDraft = ref('')
 const titleInvalid = computed(() => !titleDraft.value.trim())
 
 let pending: { id: string, patch: ItemPatch } | null = null
@@ -51,6 +52,10 @@ function onDescriptionInput() {
   schedule({ data: { description: descriptionDraft.value } })
 }
 
+function onCommentInput() {
+  schedule({ data: { comment: commentDraft.value } })
+}
+
 const confirmingDelete = ref(false)
 const deleteButton = ref<HTMLButtonElement | null>(null)
 const cancelDeleteButton = ref<HTMLButtonElement | null>(null)
@@ -78,6 +83,7 @@ watch(() => props.item.id, () => {
   confirmingDelete.value = false
   titleDraft.value = content.value?.title ?? ''
   descriptionDraft.value = content.value?.description ?? ''
+  commentDraft.value = props.item.type === 'addComment' ? props.item.data.comment : ''
 }, { immediate: true, flush: 'sync' })
 
 onBeforeUnmount(flush)
@@ -155,14 +161,19 @@ const TRIGGER_LABELS = {
       </template>
     </section>
 
-    <section v-else-if="props.item.type === 'addComment'" class="flex flex-col gap-2">
-      <h3 class="font-medium text-gray-500">
-        Comment
-      </h3>
-      <p class="whitespace-pre-line rounded-lg bg-sky-50 p-3">
-        {{ props.item.data.comment }}
-      </p>
-    </section>
+    <label v-else-if="props.item.type === 'addComment'" for="node-comment" class="flex flex-col gap-1">
+      <span class="text-gray-500">Comment</span>
+      <textarea
+        id="node-comment"
+        v-model="commentDraft"
+        name="comment"
+        rows="4"
+        placeholder="No comment"
+        class="rounded-lg border border-gray-200 px-3 py-2"
+        @input="onCommentInput"
+        @blur="flush"
+      />
+    </label>
 
     <template v-else-if="props.item.type === 'dateTime'">
       <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">

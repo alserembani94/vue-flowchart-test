@@ -54,7 +54,11 @@ export const useFlowStore = defineStore('flow', () => {
 
     if (patch.data) {
       const { description, ...rest } = patch.data
-      Object.assign(item.data, rest)
+      const data = item.data as Record<string, unknown>
+      for (const [key, value] of Object.entries(rest)) {
+        if (key !== 'comment' && key in data)
+          data[key] = value
+      }
 
       if ('description' in patch.data) {
         const trimmed = description?.trim() ?? ''
@@ -62,6 +66,9 @@ export const useFlowStore = defineStore('flow', () => {
           item.data.description = trimmed
         else delete item.data.description
       }
+
+      if (item.type === 'addComment' && 'comment' in patch.data)
+        item.data.comment = patch.data.comment?.trim() ?? ''
     }
 
     return true

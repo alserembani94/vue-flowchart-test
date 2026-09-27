@@ -58,6 +58,36 @@ describe('updateItem', () => {
   })
 })
 
+describe('updateItem comment', () => {
+  const commentOf = (id: string) => {
+    const entry = item(id)
+    return entry.type === 'addComment' ? entry.data.comment : undefined
+  }
+
+  it('trims and saves the comment', () => {
+    const id = flow.insertItem({ type: 'addComment', name: 'Note' }, 'b0653a')!
+
+    flow.updateItem(id, { data: { comment: '  Call back  ' } })
+
+    expect(commentOf(id)).toBe('Call back')
+  })
+
+  it('keeps an empty comment when it is removed', () => {
+    const id = flow.insertItem({ type: 'addComment', name: 'Note' }, 'b0653a')!
+    flow.updateItem(id, { data: { comment: 'Call back' } })
+
+    flow.updateItem(id, { data: { comment: '   ' } })
+
+    expect(commentOf(id)).toBe('')
+  })
+
+  it('ignores a comment for other node types', () => {
+    flow.updateItem('b0653a', { data: { comment: 'Not a comment node' } })
+
+    expect(item('b0653a').data).not.toHaveProperty('comment', 'Not a comment node')
+  })
+})
+
 describe('insertItem', () => {
   it('adds a node at the end when the parent has no children', () => {
     const id = flow.insertItem({ type: 'addComment', name: ' Note ', description: ' Why ' }, 'b0653a')!

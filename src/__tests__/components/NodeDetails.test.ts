@@ -65,10 +65,10 @@ describe('content by type', () => {
     )
   })
 
-  it('shows the comment', () => {
+  it('shows the comment in an editable field', () => {
     renderDetails(comment)
 
-    expect(screen.getByText('Off hours message')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Comment' })).toHaveValue('Off hours message')
   })
 
   it('shows the business hours schedule', () => {
@@ -149,6 +149,37 @@ describe('editing', () => {
     view.unmount()
 
     expect(view.emitted('update')).toEqual([['b0653a', { data: { description: 'Bye' } }]])
+  })
+})
+
+describe('editing the comment', () => {
+  const commentInput = () => screen.getByRole('textbox', { name: 'Comment' })
+
+  it('emits the comment after the debounce', async () => {
+    const view = renderDetails(comment)
+
+    await user.clear(commentInput())
+    await user.type(commentInput(), 'Call back tomorrow')
+    expect(view.emitted('update')).toBeUndefined()
+
+    vi.advanceTimersByTime(INPUT_DEBOUNCE_MS)
+
+    expect(view.emitted('update')).toEqual([['c1', { data: { comment: 'Call back tomorrow' } }]])
+  })
+
+  it('emits an empty comment when it is cleared', async () => {
+    const view = renderDetails(comment)
+
+    await user.clear(commentInput())
+    vi.advanceTimersByTime(INPUT_DEBOUNCE_MS)
+
+    expect(view.emitted('update')).toEqual([['c1', { data: { comment: '' } }]])
+  })
+
+  it('shows the comment field only for comment nodes', () => {
+    renderDetails(message)
+
+    expect(screen.queryByRole('textbox', { name: 'Comment' })).not.toBeInTheDocument()
   })
 })
 
