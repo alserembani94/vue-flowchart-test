@@ -6,12 +6,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { computeGraph } from '../utils/computeGraph';
 import { useVueFlow, VueFlow, type Edge, type Node, type NodeChange, type NodeMouseEvent, type NodeProps } from '@vue-flow/core'
 import { useLayout, type LayoutDirection } from '../utils/useLayout';
-import { NODE_META, isSelectable } from '../utils/nodeMeta';
-import { useFlowStore } from '../stores/flow';
+import { NODE_META, getItemAriaLabel, getItemTitle, isSelectable } from '../utils/nodeMeta';
+import { INSERT_NODE_TYPE, insertNodeId, withInsertPoints, type InsertNodeData } from '../utils/insertPoints';
+import { isContentItem, useFlowStore, type ItemPatch, type NewNodeInput } from '../stores/flow';
 import type { FlowNodeData } from '../types';
 import NodeCard from '../components/NodeCard.vue';
 import Drawer from '../components/Drawer.vue';
 import NodeDetails from '../components/NodeDetails.vue';
+import CreateNodeForm from '../components/CreateNodeForm.vue';
 import { Background } from '@vue-flow/background'
 
 const CARD_TYPES = ['sendMessage', 'addComment', 'dateTime'] as const;
@@ -32,23 +34,62 @@ watch(data, (processes) => {
 const nodes = shallowRef<Node[]>([]);
 const edges = shallowRef<Edge[]>([]);
 
-watch(() => flow.items, (items) => {
-  const graph = computeGraph(items);
-  nodes.value = graph.nodes;
-  edges.value = graph.edges;
-}, { immediate: true });
-
 const { layout } = useLayout();
 const {
   fitView, findNode, getSelectedNodes, addSelectedNodes, removeSelectedNodes,
-  viewport, dimensions, setCenter,
+  viewport, dimensions, setCenter, updateNode,
 } = useVueFlow();
+
+let hasFitted = false;
 
 async function layoutGraph(direction: LayoutDirection) {
   nodes.value = layout(nodes.value, edges.value, direction)
+  if (hasFitted) return;
 
+  hasFitted = true;
   await nextTick()
   fitView({ padding: 0.5 })
+}
+
+watch(() => flow.structureKey, () => {
+  const graph = computeGraph(flow.items);
+  const composed = withInsertPoints(graph.nodes, graph.edges);
+  const hadNodes = nodes.value.length > 0;
+  const hasNewNodes = composed.nodes.some((node) => !findNode(node.id));
+
+  nodes.value = composed.nodes.map((node) => {
+    const position = findNode(node.id)?.position;
+    return position ? { ...node, position: { ...position } } : node;
+  });
+  edges.value = composed.edges;
+
+  if (hadNodes && !hasNewNodes) nextTick(() => layoutGraph('TB'));
+}, { immediate: true });
+
+watch(
+  () => flow.items.map((item) => [item.id.toString(), getItemAriaLabel(item)] as const),
+  (labels) => {
+    for (const [id, ariaLabel] of labels) {
+      const node = findNode(id);
+      if (node && node.ariaLabel !== ariaLabel) updateNode(id, { ariaLabel });
+    }
+  },
+);
+
+function cardContent(id: string) {
+  const item = flow.itemsById.get(id);
+  return isContentItem(item)
+    ? { title: item.name, description: item.data.description ?? '' }
+    : { title: '', description: '' };
+}
+
+function insertLabel(parentId: string) {
+  const parent = flow.itemsById.get(parentId);
+  if (!parent) return 'Add node';
+  const name = parent.type === 'dateTimeConnector'
+    ? `${parent.data.connectorType === 'success' ? 'Success' : 'Failure'} branch`
+    : getItemTitle(parent);
+  return `Add node after ${name}`;
 }
 
 const route = useRoute();
@@ -98,36 +139,79 @@ function onNodesChange(changes: NodeChange[]) {
 }
 
 function onNodeClick({ node }: NodeMouseEvent) {
+  if (node.type === INSERT_NODE_TYPE) return;
   if (!isSelectable(flow.itemsById.get(node.id))) closeDrawer();
 }
 
+const createParentId = ref<string | null>(null);
+const drawerOpen = computed(() => !!selectedItem.value || !!createParentId.value);
+
+watch(selectedId, (id) => {
+  if (id) createParentId.value = null;
+});
+
 const drawer = ref<InstanceType<typeof Drawer> | null>(null);
 
-watch(() => selectedItem.value?.id, (id) => {
-  if (id) drawer.value?.focus();
+watch([() => selectedItem.value?.id, createParentId], ([id, parentId]) => {
+  if (id || parentId) drawer.value?.focus();
 }, { flush: 'post' });
 
+function focusElement(selector: string) {
+  document.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+}
+
 function focusNode(id: string) {
-  document
-    .querySelector<HTMLElement>(`.vue-flow__node[data-id=${JSON.stringify(id)}]`)
-    ?.focus({ preventScroll: true });
+  focusElement(`.vue-flow__node[data-id=${JSON.stringify(id)}]`);
+}
+
+function focusInsertButton(parentId: string) {
+  focusElement(`.vue-flow__node[data-id=${JSON.stringify(insertNodeId(parentId))}] button`);
+}
+
+function openCreate(parentId: string) {
+  selectedId.value = null;
+  createParentId.value = parentId;
 }
 
 async function closeDrawer({ returnFocus = false } = {}) {
   const id = selectedId.value;
+  const insertParentId = createParentId.value;
   selectedId.value = null;
+  createParentId.value = null;
 
-  if (returnFocus && id) {
-    await nextTick();
-    focusNode(id);
-  }
+  if (!returnFocus) return;
+  await nextTick();
+  if (insertParentId) focusInsertButton(insertParentId);
+  else if (id) focusNode(id);
+}
+
+function onCreate(input: NewNodeInput) {
+  const parentId = createParentId.value;
+  const id = parentId ? flow.insertItem(input, parentId) : null;
+  if (!id) return;
+
+  createParentId.value = null;
+  selectedId.value = id;
+}
+
+function onUpdate(id: string, patch: ItemPatch) {
+  flow.updateItem(id, patch);
+}
+
+async function onDelete(id: string) {
+  const parentId = flow.itemsById.get(id)?.parentId.toString();
+  if (!parentId || !flow.deleteItem(id)) return;
+
+  selectedId.value = null;
+  await nextTick();
+  focusInsertButton(parentId);
 }
 
 function onGraphKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return;
 
   event.stopPropagation();
-  if (selectedItem.value) closeDrawer({ returnFocus: true });
+  if (drawerOpen.value) closeDrawer({ returnFocus: true });
 }
 
 function onGraphFocusin(event: FocusEvent) {
@@ -187,15 +271,25 @@ function onGraphFocusin(event: FocusEvent) {
         <template
           v-for="type in CARD_TYPES"
           :key="type"
-          #[`node-${type}`]="{ data, selected }: NodeProps<FlowNodeData<CardType>>"
+          #[`node-${type}`]="{ id, selected }: NodeProps<FlowNodeData<CardType>>"
         >
           <NodeCard v-bind="{
             type,
             icon: NODE_META[type].icon,
-            title: data.name,
-            description: data.data.description ?? '',
+            ...cardContent(id),
             selected
           }" />
+        </template>
+
+        <template #node-insert="{ data }: NodeProps<InsertNodeData>">
+          <button
+            type="button"
+            :aria-label="insertLabel(data.parentId)"
+            class="nodrag flex size-7 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:border-gray-500 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+            @click="openCreate(data.parentId)"
+          >
+            <i class="pi pi-plus text-xs"></i>
+          </button>
         </template>
 
         <template #node-dateTimeConnector="{ data }: NodeProps<FlowNodeData<'dateTimeConnector'>>">
@@ -207,15 +301,27 @@ function onGraphFocusin(event: FocusEvent) {
       </VueFlow>
     </div>
 
-    <Drawer ref="drawer" :open="!!selectedItem" @close="closeDrawer({ returnFocus: true })">
-      <template v-if="selectedItem" #title>
+    <Drawer ref="drawer" :open="drawerOpen" @close="closeDrawer({ returnFocus: true })">
+      <template v-if="createParentId" #title>New node</template>
+      <template v-else-if="selectedItem" #title>
         <span class="flex items-center gap-2">
           <i :class="[NODE_META[selectedItem.type].icon, NODE_META[selectedItem.type].text]"></i>
           <span class="truncate">{{ NODE_META[selectedItem.type].label }}</span>
         </span>
       </template>
 
-      <NodeDetails v-if="selectedItem" :item="selectedItem" />
+      <CreateNodeForm
+        v-if="createParentId"
+        :key="createParentId"
+        @submit="onCreate"
+        @cancel="closeDrawer({ returnFocus: true })"
+      />
+      <NodeDetails
+        v-else-if="selectedItem"
+        :item="selectedItem"
+        @update="onUpdate"
+        @delete="onDelete"
+      />
     </Drawer>
   </div>
 </template>

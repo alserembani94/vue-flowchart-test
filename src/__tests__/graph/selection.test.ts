@@ -1,113 +1,24 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, type PropType } from "vue";
-import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { createMemoryHistory, createRouter, type Router } from "vue-router";
-import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
-import { createPinia } from "pinia";
-import type { Node } from "@vue-flow/core";
-import IndexPage from "../../pages/index.vue";
+import { flushPromises } from "@vue/test-utils";
+import { useIndexPage } from "../helpers/indexPage";
 
 vi.mock("../../api/process", async () => {
   const { flowItems } = await import("../fixtures/flowItems");
-  return { getProcesses: vi.fn(async () => flowItems) };
+  return { getProcesses: vi.fn(async () => structuredClone(flowItems)) };
 });
 
-const VueFlowStub = defineComponent({
-  name: "VueFlow",
-  props: { nodes: { type: Array as PropType<Node[]>, default: () => [] } },
-  emits: ["nodeClick", "nodesChange", "paneClick", "nodesInitialized"],
-  setup: (props, { slots }) => () =>
-    h(
-      "div",
-      { "data-test": "vue-flow" },
-      props.nodes.map((node) =>
-        h(
-          "div",
-          {
-            class: "vue-flow__node",
-            "data-id": node.id,
-            tabindex: node.focusable === false ? undefined : 0,
-          },
-          slots[`node-${node.type}`]?.({ id: node.id, type: node.type, data: node.data, selected: false }),
-        ),
-      ),
-    ),
-});
-
-let router: Router;
-let wrapper: VueWrapper;
-let queryClient: QueryClient;
-
-async function mountPage(url = "/") {
-  router = createRouter({
-    history: createMemoryHistory(),
-    routes: [{ path: "/", component: IndexPage }],
-  });
-  await router.push(url);
-  await router.isReady();
-
-  queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-
-  wrapper = mount(IndexPage, {
-    attachTo: document.body,
-    global: {
-      plugins: [router, createPinia(), [VueQueryPlugin, { queryClient }]],
-      stubs: { VueFlow: VueFlowStub },
-    },
-  });
-  await flushPromises();
-}
-
-const flow = () => wrapper.findComponent(VueFlowStub);
-const nodeElement = (id: string) =>
-  wrapper.get<HTMLElement>(`.vue-flow__node[data-id="${id}"]`).element;
-
-function isSelectableNode(id: string) {
-  const nodes = flow().props("nodes") as Node[];
-  return nodes.find((node) => node.id === id)?.selectable !== false;
-}
-
-async function clickNode(id: string) {
-  nodeElement(id).focus();
-  if (isSelectableNode(id)) {
-    flow().vm.$emit("nodesChange", [{ id, type: "select", selected: true }]);
-  }
-  flow().vm.$emit("nodeClick", { node: { id } });
-  await flushPromises();
-}
-
-async function pressEnterOn(id: string) {
-  nodeElement(id).focus();
-  flow().vm.$emit("nodesChange", [{ id, type: "select", selected: true }]);
-  await flushPromises();
-}
-
-async function emitDeselect(id: string) {
-  flow().vm.$emit("nodesChange", [{ id, type: "select", selected: false }]);
-  await flushPromises();
-}
-
-async function clickPane() {
-  flow().vm.$emit("paneClick");
-  await flushPromises();
-}
-
-const drawer = () => wrapper.find("aside");
-const drawerTitle = () => wrapper.get("#drawer-title").text();
-const titleInput = () => wrapper.get<HTMLInputElement>('aside input[name="title"]').element;
-const descriptionInput = () => wrapper.get<HTMLTextAreaElement>('aside textarea[name="description"]').element;
-const card = (id: string) => wrapper.get(`.vue-flow__node[data-id="${id}"]`);
-const nodeQuery = () => router.currentRoute.value.query.node;
+const {
+  mountPage, router, wrapper, queryClient, unmount, nodeElement, clickNode, pressEnterOn,
+  emitDeselect, clickPane, drawer, drawerTitle, titleInput, descriptionInput, card, nodeQuery,
+} = useIndexPage();
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 afterEach(() => {
-  wrapper?.unmount();
+  unmount();
 });
 
 describe("selecting nodes", () => {
@@ -151,8 +62,8 @@ describe("selecting nodes", () => {
 
   it("uses replace, so selecting nodes doesn't add history entries", async () => {
     await mountPage();
-    const push = vi.spyOn(router, "push");
-    const replace = vi.spyOn(router, "replace");
+    const push = vi.spyOn(router(), "push");
+    const replace = vi.spyOn(router(), "replace");
 
     await clickNode("d09c08");
     await clickNode("b0653a");
@@ -240,13 +151,13 @@ describe("node content", () => {
     await mountPage("/?node=1");
 
     expect(drawerTitle()).toContain("Trigger");
-    expect(wrapper.find('aside input[name="title"]').exists()).toBe(false);
+    expect(wrapper().find('aside input[name="title"]').exists()).toBe(false);
   });
 
   it("keeps the store's items when the query data changes again", async () => {
     await mountPage();
 
-    queryClient.setQueryData(["processes"], []);
+    queryClient().setQueryData(["processes"], []);
     await flushPromises();
 
     expect(card("d09c08").text()).toContain("Business Hours");
@@ -266,7 +177,7 @@ describe("closing the drawer", () => {
   it("closes with the close button", async () => {
     await mountPage("/?node=d09c08");
 
-    await wrapper.get("aside header button").trigger("click");
+    await wrapper().get("aside header button").trigger("click");
     await flushPromises();
 
     expect(drawer().exists()).toBe(false);
@@ -288,7 +199,7 @@ describe("closing the drawer", () => {
 
     await clickPane();
 
-    expect(router.currentRoute.value.query).toEqual({ foo: "bar" });
+    expect(router().currentRoute.value.query).toEqual({ foo: "bar" });
   });
 });
 
@@ -324,7 +235,7 @@ describe("focus", () => {
     await mountPage();
     await pressEnterOn("d09c08");
 
-    await wrapper.get("aside header button").trigger("click");
+    await wrapper().get("aside header button").trigger("click");
     await flushPromises();
 
     expect(document.activeElement).toBe(nodeElement("d09c08"));
@@ -406,7 +317,7 @@ describe("deep links", () => {
     await mountPage("/?node=does-not-exist&foo=bar");
 
     expect(drawer().exists()).toBe(false);
-    expect(router.currentRoute.value.query).toEqual({ foo: "bar" });
+    expect(router().currentRoute.value.query).toEqual({ foo: "bar" });
   });
 
   it("ignores a repeated ?node= param", async () => {

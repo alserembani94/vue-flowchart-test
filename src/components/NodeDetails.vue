@@ -1,16 +1,85 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import type { FlowItem } from '../types';
+import { isContentItem, type ItemPatch } from '../stores/flow';
+import { INPUT_DEBOUNCE_MS } from '../utils/constants';
 
 const props = defineProps<{ item: FlowItem }>();
 
+const emit = defineEmits<{
+  update: [id: string, patch: ItemPatch];
+  delete: [id: string];
+}>();
+
 const content = computed(() => {
   const { item } = props;
-  if (item.type === 'sendMessage' || item.type === 'addComment' || item.type === 'dateTime') {
-    return { title: item.name, description: item.data.description ?? '' };
-  }
-  return null;
+  return isContentItem(item) ? { title: item.name, description: item.data.description ?? '' } : null;
 });
+
+const titleDraft = ref('');
+const descriptionDraft = ref('');
+const titleInvalid = computed(() => !titleDraft.value.trim());
+
+let pending: { id: string; patch: ItemPatch } | null = null;
+let timer: ReturnType<typeof setTimeout> | undefined;
+
+function flush() {
+  clearTimeout(timer);
+  if (pending) emit('update', pending.id, pending.patch);
+  pending = null;
+}
+
+function schedule(patch: ItemPatch) {
+  const base = pending?.patch ?? {};
+  const data = base.data || patch.data ? { ...base.data, ...patch.data } : undefined;
+  pending = { id: props.item.id.toString(), patch: { ...base, ...patch, data } };
+  clearTimeout(timer);
+  timer = setTimeout(flush, INPUT_DEBOUNCE_MS);
+}
+
+function onTitleInput() {
+  if (!titleInvalid.value) schedule({ name: titleDraft.value });
+}
+
+function onTitleBlur() {
+  if (titleInvalid.value) titleDraft.value = content.value?.title ?? '';
+  flush();
+}
+
+function onDescriptionInput() {
+  schedule({ data: { description: descriptionDraft.value } });
+}
+
+const confirmingDelete = ref(false);
+const deleteButton = ref<HTMLButtonElement | null>(null);
+const cancelDeleteButton = ref<HTMLButtonElement | null>(null);
+
+async function startDelete() {
+  confirmingDelete.value = true;
+  await nextTick();
+  cancelDeleteButton.value?.focus();
+}
+
+async function cancelDelete() {
+  confirmingDelete.value = false;
+  await nextTick();
+  deleteButton.value?.focus();
+}
+
+function confirmDelete() {
+  clearTimeout(timer);
+  pending = null;
+  emit('delete', props.item.id.toString());
+}
+
+watch(() => props.item.id, () => {
+  flush();
+  confirmingDelete.value = false;
+  titleDraft.value = content.value?.title ?? '';
+  descriptionDraft.value = content.value?.description ?? '';
+}, { immediate: true, flush: 'sync' });
+
+onBeforeUnmount(flush);
 
 const DAY_LABELS = {
   mon: 'Monday',
@@ -42,20 +111,29 @@ dl > dt {
       <label class="flex flex-col gap-1">
         <span class="text-gray-500">Title</span>
         <input
+          v-model="titleDraft"
           name="title"
           type="text"
-          :value="content.title"
-          class="rounded-lg border border-gray-200 px-3 py-2"
+          required
+          :aria-invalid="titleInvalid"
+          :aria-describedby="titleInvalid ? 'node-title-error' : undefined"
+          class="rounded-lg border px-3 py-2"
+          :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
+          @input="onTitleInput"
+          @blur="onTitleBlur"
         />
+        <span v-if="titleInvalid" id="node-title-error" class="text-red-600">Title is required</span>
       </label>
       <label class="flex flex-col gap-1">
         <span class="text-gray-500">Description</span>
         <textarea
+          v-model="descriptionDraft"
           name="description"
           rows="3"
-          :value="content.description"
           placeholder="No description"
           class="rounded-lg border border-gray-200 px-3 py-2"
+          @input="onDescriptionInput"
+          @blur="flush"
         ></textarea>
       </label>
     </section>
@@ -117,6 +195,33 @@ dl > dt {
       </section>
     </template>
 
+    <section v-if="content" class="border-t border-gray-200 pt-4">
+      <button
+        v-if="!confirmingDelete"
+        ref="deleteButton"
+        type="button"
+        class="rounded-lg px-3 py-2 text-red-600 hover:bg-red-50"
+        @click="startDelete"
+      >
+        <i class="pi pi-trash"></i> Delete node
+      </button>
+      <div v-else role="group" aria-labelledby="delete-confirm-text" class="flex flex-col gap-2 rounded-lg bg-red-50 p-3">
+        <p id="delete-confirm-text">Delete this node? Its children will move up to its parent.</p>
+        <div class="flex gap-2">
+          <button type="button" class="rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700" @click="confirmDelete">
+            Delete
+          </button>
+          <button
+            ref="cancelDeleteButton"
+            type="button"
+            class="rounded-lg border border-gray-200 bg-white px-3 py-2 hover:bg-gray-50"
+            @click="cancelDelete"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </section>
 
     <!-- TODO: Remove this after done with development -->
     <details class="rounded-lg border border-gray-200">
