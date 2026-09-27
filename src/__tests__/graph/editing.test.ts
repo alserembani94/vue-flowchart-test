@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 import { useIndexPage } from "../helpers/indexPage";
-import { insertNodeId } from "../../utils/insertPoints";
+import { INSERT_END_COLOR, insertNodeId } from "../../utils/insertPoints";
+import { NODE_META } from "../../utils/nodeMeta";
 import { INPUT_DEBOUNCE_MS } from "../../utils/constants";
 
 vi.mock("../../api/process", async () => {
@@ -69,6 +70,35 @@ describe("insert buttons", () => {
     expect(nodeQuery()).toBeUndefined();
     expect(wrapper().get<HTMLSelectElement>('aside select[name="type"]').element.value).toBe("");
     expect(document.activeElement).toBe(drawer().element);
+  });
+});
+
+describe("insert button colors", () => {
+  const buttonStyle = (parentId: string) => insertButton(parentId).element as HTMLButtonElement;
+
+  it("matches the parent's edge color between nodes and uses gray at the end, for border and icon", async () => {
+    await mountPage();
+
+    expect(buttonStyle("1").style.borderColor).toBe(NODE_META.trigger.stroke);
+    expect(buttonStyle("1").style.color).toBe(NODE_META.trigger.stroke);
+    expect(buttonStyle("b0653a").style.borderColor).toBe(INSERT_END_COLOR);
+    expect(buttonStyle("b0653a").style.color).toBe(INSERT_END_COLOR);
+  });
+
+  it("updates when a node is added after it and deleted again", async () => {
+    await mountPage();
+    await openCreateAfter("b0653a");
+    await fillCreateForm({ type: "sendMessage", title: "Next" });
+    await submitCreateForm();
+    const id = nodeQuery() as string;
+
+    expect(buttonStyle("b0653a").style.borderColor).toBe(NODE_META.sendMessage.stroke);
+    expect(buttonStyle(id).style.borderColor).toBe(INSERT_END_COLOR);
+
+    store().deleteItem(id);
+    await flushPromises();
+
+    expect(buttonStyle("b0653a").style.borderColor).toBe(INSERT_END_COLOR);
   });
 });
 

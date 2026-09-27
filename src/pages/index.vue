@@ -285,7 +285,8 @@ function onGraphFocusin(event: FocusEvent) {
           <button
             type="button"
             :aria-label="insertLabel(data.parentId)"
-            class="nodrag flex size-7 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:border-gray-500 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+            :style="{ borderColor: data.color, color: data.color }"
+            class="nodrag flex size-7 items-center justify-center rounded-full border bg-white hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2"
             @click="openCreate(data.parentId)"
           >
             <i class="pi pi-plus text-xs"></i>
