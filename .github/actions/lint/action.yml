@@ -1,0 +1,9 @@
+name: Lint
+description: Check code quality and formatting with ESLint
+
+runs:
+  using: composite
+  steps:
+    - name: Lint
+      shell: bash
+      run: bun run lint

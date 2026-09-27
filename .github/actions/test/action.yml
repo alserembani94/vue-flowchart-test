@@ -1,0 +1,9 @@
+name: Test
+description: Run the test suite once with Vitest
+
+runs:
+  using: composite
+  steps:
+    - name: Test
+      shell: bash
+      run: bun run test:run

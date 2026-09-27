@@ -177,11 +177,41 @@ The pre-commit hook runs `eslint --fix` on your staged files.
 | `lint:fix`  | Fixes linting and formatting problems                       |
 | `prepare`   | Installs the git hooks. Runs automatically on `bun install` |
 
-## Deployment
+## CI/CD
 
-The app is deployed on [Vercel](https://vercel.com). Vercel detects Vite, runs `bun run build`, and serves `dist/`. It also picks a Node version that matches the `engines` field in `package.json`.
+### Continuous integration
+
+GitHub Actions runs quality checks on every pull request and on every push to `main`. You can also start a run by hand from the Actions tab.
+
+The workflow (`.github/workflows/ci.yml`) runs three jobs in parallel. Each one shows up as its own check on a pull request:
+
+| Job       | What it runs        |
+| --------- | ------------------- |
+| Lint      | `bun run lint`      |
+| Typecheck | `bun run typecheck` |
+| Test      | `bun run test:run`  |
+
+Each job is built from small reusable actions in `.github/actions/`:
+
+- **`setup`** installs Node 24 and the Bun version from `packageManager` in `package.json`, restores the package cache, and runs `bun install --frozen-lockfile`. The install fails if `bun.lock` is out of date.
+- **`lint`**, **`typecheck`**, and **`test`** each run one script.
+
+The workflow only has read access to the repository, and every third-party action is pinned to a full commit SHA. A new push to a pull request cancels that pull request's older runs.
+
+There's no build job, because Vercel already builds every commit (see below) and reports the result as a check.
+
+### Deployment
+
+The app is deployed on [Vercel](https://vercel.com) through its GitHub integration:
+
+- Every push to `main` is deployed to production.
+- Every other branch and pull request gets a preview deployment.
+- Vercel runs `bun run build`, serves `dist/`, and picks a Node version that matches `engines` in `package.json`.
+- The result is reported on the commit as a **Vercel** check, so a broken build shows up next to the CI checks.
 
 `vercel.json` rewrites `/api/processes` to the sample payload. It replaces the Vite proxy, which only exists during development.
+
+To stop failing changes from being merged, turn on branch protection for `main` and require the **Lint**, **Typecheck**, **Test**, and **Vercel** checks.
 
 ## Known limitations
 

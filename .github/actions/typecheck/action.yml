@@ -1,0 +1,9 @@
+name: Typecheck
+description: Type-check the app and the Vite config with vue-tsc
+
+runs:
+  using: composite
+  steps:
+    - name: Typecheck
+      shell: bash
+      run: bun run typecheck
