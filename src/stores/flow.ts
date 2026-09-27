@@ -1,7 +1,8 @@
-import type { FlowItem } from '../types'
+import type { FlowItem, SendMessagePayload } from '../types'
 import type { ContentItem } from '../utils/nodeMeta'
 import { defineStore } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
+import { attachmentUrls, revokeBlobUrls } from '../utils/attachments'
 import { isContentItem } from '../utils/nodeMeta'
 
 export interface ItemPatch {
@@ -45,18 +46,33 @@ export const useFlowStore = defineStore('flow', () => {
     if (!isContentItem(item))
       return false
 
-    if (patch.name !== undefined) {
-      const name = patch.name.trim()
-      if (!name)
+    const name = patch.name?.trim()
+    if (name === '')
+      return false
+
+    let payload: SendMessagePayload[] | undefined
+    if (item.type === 'sendMessage' && patch.data && 'payload' in patch.data) {
+      payload = (patch.data.payload ?? []).map(part =>
+        part.type === 'text' ? { type: 'text', text: part.text.trim() } : part,
+      )
+      if (payload.some(part => part.type === 'text' && part.text === ''))
         return false
+    }
+
+    if (name !== undefined)
       item.name = name
+
+    if (item.type === 'sendMessage' && payload) {
+      const kept = new Set(attachmentUrls(payload))
+      revokeBlobUrls(attachmentUrls(item.data.payload).filter(url => !kept.has(url)))
+      item.data.payload = payload
     }
 
     if (patch.data) {
       const { description, ...rest } = patch.data
       const data = item.data as Record<string, unknown>
       for (const [key, value] of Object.entries(rest)) {
-        if (key !== 'comment' && key in data)
+        if (key !== 'comment' && key !== 'payload' && key in data)
           data[key] = value
       }
 
@@ -138,6 +154,11 @@ export const useFlowStore = defineStore('flow', () => {
         if (!removedIds.has(child.id.toString()))
           child.parentId = item.parentId
       }
+    }
+
+    for (const entry of removed) {
+      if (entry.type === 'sendMessage')
+        revokeBlobUrls(attachmentUrls(entry.data.payload))
     }
 
     items.value = items.value.filter(entry => !removedIds.has(entry.id.toString()))

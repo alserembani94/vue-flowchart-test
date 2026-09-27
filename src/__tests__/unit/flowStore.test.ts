@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readonly } from 'vue'
 import { useFlowStore } from '../../stores/flow'
 import { flowItems } from '../fixtures/flowItems'
@@ -85,6 +85,68 @@ describe('updateItem comment', () => {
     flow.updateItem('b0653a', { data: { comment: 'Not a comment node' } })
 
     expect(item('b0653a').data).not.toHaveProperty('comment', 'Not a comment node')
+  })
+})
+
+describe('updateItem payload', () => {
+  const payloadOf = (id: string) => {
+    const entry = item(id)
+    return entry.type === 'sendMessage' ? entry.data.payload : undefined
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('replaces the payload in order and trims texts', () => {
+    const payload = [
+      { type: 'attachment' as const, attachment: 'https://example.com/a.png' },
+      { type: 'text' as const, text: '  Hi there  ' },
+    ]
+
+    expect(flow.updateItem('b0653a', { data: { payload } })).toBe(true)
+    expect(payloadOf('b0653a')).toEqual([
+      { type: 'attachment', attachment: 'https://example.com/a.png' },
+      { type: 'text', text: 'Hi there' },
+    ])
+  })
+
+  it('rejects a payload with an empty text and changes nothing', () => {
+    const payload = [{ type: 'text' as const, text: '   ' }]
+
+    expect(flow.updateItem('b0653a', { name: 'Renamed', data: { payload } })).toBe(false)
+    expect(payloadOf('b0653a')).toEqual([{ type: 'text', text: 'Hello there' }])
+    expect(item('b0653a')).toMatchObject({ name: 'Welcome Message' })
+  })
+
+  it('allows an empty payload', () => {
+    expect(flow.updateItem('b0653a', { data: { payload: [] } })).toBe(true)
+    expect(payloadOf('b0653a')).toEqual([])
+  })
+
+  it('releases uploaded images that are removed from the payload', () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    flow.updateItem('b0653a', {
+      data: { payload: [
+        { type: 'attachment', attachment: 'blob:kept' },
+        { type: 'attachment', attachment: 'blob:removed' },
+        { type: 'attachment', attachment: 'https://example.com/remote.png' },
+      ] },
+    })
+
+    flow.updateItem('b0653a', { data: { payload: [{ type: 'attachment', attachment: 'blob:kept' }] } })
+
+    expect(revoke).toHaveBeenCalledTimes(1)
+    expect(revoke).toHaveBeenCalledWith('blob:removed')
+  })
+
+  it('releases uploaded images when their node is deleted', () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    flow.updateItem('b0653a', { data: { payload: [{ type: 'attachment', attachment: 'blob:photo' }] } })
+
+    flow.deleteItem('b0653a')
+
+    expect(revoke).toHaveBeenCalledWith('blob:photo')
   })
 })
 

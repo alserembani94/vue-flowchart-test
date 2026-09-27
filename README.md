@@ -12,6 +12,9 @@ The project started as a frontend assessment, and its look is based on the desig
 - Click a node, or press Enter on it, to open its details in a side drawer.
 - The open node is saved in the URL (`?node=<id>`), so you can share a link to it.
 - Edit a node's title and description. Changes are saved as you type.
+- Edit an Add Comment node's comment.
+- Edit a Send Message node's texts: add, change, or remove them.
+- Attach images to a Send Message node, shown as tiles. Click a tile to remove the image.
 - Add a node with the **+** button at the end of a branch or between two steps.
 - Delete a node. Its children move up to its parent.
 - A Business Hours node comes with its own Success and Failure branches.
@@ -43,9 +46,10 @@ The project started as a frontend assessment, and its look is based on the desig
 ```
 ├── src/
 │   ├── pages/         # Pages. Each file becomes a route (index.vue is "/")
-│   ├── components/    # UI components: node card, drawer, node details, create form
+│   ├── components/    # UI components: node card, drawer, node details, message editor, create form
+│   ├── composables/   # Reusable logic: graph building, layout, selection, message drafts
 │   ├── stores/        # Pinia store that holds the flow and all edits
-│   ├── utils/         # Graph building, layout, node metadata, constants
+│   ├── utils/         # Plain functions: graph data, node metadata, attachments, viewport, constants
 │   ├── api/           # Fetching the flow data
 │   ├── types/         # Types for the flow data
 │   └── __tests__/
@@ -93,6 +97,10 @@ Tailwind provides the utility classes, and the components use them to build thei
 - **The + buttons are added after the graph is built.** `withInsertPoints` adds a + node after every step that can have a next step. Adding a node in the middle of a flow moves the existing next steps under the new node.
 - **Edits are debounced.** Title and description changes are saved 300ms after you stop typing, so the graph doesn't update on every keystroke. An empty title isn't saved.
 - **Business Hours is a condition.** It always comes with Success and Failure branches. The branches can't be opened, and there's no + button directly after Business Hours, only after its branches.
+- **A message is one ordered list.** A Send Message node's texts and images are stored together in `payload`, and their order matters. The drawer shows texts and images in separate groups, and anything new goes at the end of the list.
+- **Empty texts hold back message changes.** A text can't be empty. While one is, text changes aren't saved, and the Add message button is disabled. Leaving the node, or reloading the page, asks you to confirm first, because the held changes will be lost.
+- **Images are saved straight away.** Adding or removing an image is saved immediately, even while a text is empty. Only images up to 25 MB are accepted. Other files are rejected with a message, and the valid files in the same batch are still added.
+- **Uploads stay in the browser.** An uploaded image becomes a local `blob:` URL. It's released when the image is removed or its node is deleted.
 
 ### Accessibility
 
@@ -216,3 +224,6 @@ To stop failing changes from being merged, turn on branch protection for `main` 
 ## Known limitations
 
 - **Edits aren't saved.** Changes live in the Pinia store, so reloading the page resets the flow. There's no API to save them to.
+- **Uploaded images only live in memory.** They disappear when you reload the page.
+- **Removing an image is instant.** There's no confirmation or undo.
+- **Images can't be opened full size** from the drawer.

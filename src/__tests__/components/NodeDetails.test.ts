@@ -55,14 +55,15 @@ describe('content by type', () => {
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
   })
 
-  it('shows message texts and attachment previews', () => {
+  it('shows message texts as editable fields and attachments as tiles', () => {
     renderDetails(messageWithAttachment)
 
-    expect(screen.getByText('Hello there')).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Message attachment' })).toHaveAttribute(
+    expect(screen.getByRole('textbox', { name: 'Message 1' })).toHaveValue('Hello there')
+    expect(screen.getByRole('button', { name: 'Remove attachment 1 of 1' }).querySelector('img')).toHaveAttribute(
       'src',
       'https://example.com/image.jpg',
     )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('shows the comment in an editable field', () => {
@@ -180,6 +181,36 @@ describe('editing the comment', () => {
     renderDetails(message)
 
     expect(screen.queryByRole('textbox', { name: 'Comment' })).not.toBeInTheDocument()
+  })
+})
+
+describe('editing a message', () => {
+  it('emits the whole payload after the debounce when a text changes', async () => {
+    const view = renderDetails(messageWithAttachment)
+    const field = screen.getByRole('textbox', { name: 'Message 1' })
+
+    await user.clear(field)
+    await user.type(field, 'Hi')
+    expect(view.emitted('update')).toBeUndefined()
+
+    vi.advanceTimersByTime(INPUT_DEBOUNCE_MS)
+
+    expect(view.emitted('update')).toEqual([['b0653a', { data: { payload: [
+      { type: 'text', text: 'Hi' },
+      { type: 'attachment', attachment: 'https://example.com/image.jpg' },
+    ] } }]])
+  })
+
+  it('emits uploaded images straight away, at the end of the payload', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:new')
+    const view = renderDetails(message)
+
+    await user.upload(screen.getByLabelText('Upload images'), new File(['x'], 'new.png', { type: 'image/png' }))
+
+    expect(view.emitted('update')).toEqual([['b0653a', { data: { payload: [
+      { type: 'text', text: 'Hello there' },
+      { type: 'attachment', attachment: 'blob:new' },
+    ] } }]])
   })
 })
 

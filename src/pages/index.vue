@@ -36,7 +36,20 @@ watch(processes, (loaded) => {
 }, { immediate: true })
 
 const { nodes, layoutGraph, edges } = useFlowGraph()
-const { selectedId, selectedItem, onNodesChange } = useNodeSelection(nodes)
+const details = ref<InstanceType<typeof NodeDetails> | null>(null)
+
+const LEAVE_MESSAGE = 'A message is empty, so your message changes can\'t be saved. Leave anyway and lose them?'
+
+function hasUnsavedChanges() {
+  return details.value?.hasUnsavedChanges ?? false
+}
+
+function confirmLeave() {
+  // eslint-disable-next-line no-alert -- the native dialog is accessible and keeps every leave check synchronous
+  return !hasUnsavedChanges() || window.confirm(LEAVE_MESSAGE)
+}
+
+const { selectedId, selectedItem, onNodesChange } = useNodeSelection(nodes, { hasUnsavedChanges, confirmLeave })
 const { findNode, viewport, dimensions, setCenter } = useVueFlow()
 
 function cardContent(id: string) {
@@ -97,11 +110,15 @@ function focusInsertButton(parentId: string) {
 }
 
 function openCreate(parentId: string) {
+  if (!confirmLeave())
+    return
   selectedId.value = null
   createParentId.value = parentId
 }
 
 async function closeDrawer({ returnFocus = false } = {}) {
+  if (!confirmLeave())
+    return
   const id = selectedId.value
   const insertParentId = createParentId.value
   selectedId.value = null
@@ -252,6 +269,7 @@ function onGraphFocusin(event: FocusEvent) {
       />
       <NodeDetails
         v-else-if="selectedItem"
+        ref="details"
         :item="selectedItem"
         @update="onUpdate"
         @delete="onDelete"

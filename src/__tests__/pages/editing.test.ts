@@ -176,6 +176,94 @@ describe('editing a node', () => {
   })
 })
 
+describe('editing a message', () => {
+  const messageField = (n: number) => screen.getByRole('textbox', { name: `Message ${n}` })
+  const payloadOf = (store: Page['store'], id: string) => {
+    const entry = store.itemsById.get(id)
+    return entry?.type === 'sendMessage' ? entry.data.payload : undefined
+  }
+
+  function stubConfirm(answer: boolean) {
+    const confirm = vi.fn(() => answer)
+    Object.defineProperty(window, 'confirm', { value: confirm, configurable: true, writable: true })
+    return confirm
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    Reflect.deleteProperty(window, 'confirm')
+  })
+
+  it('saves a text edit to the store after the debounce', async () => {
+    const { user, store } = await renderIndexPage('/?node=b0653a')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
+    await user.clear(messageField(1))
+    await user.type(messageField(1), 'Hi')
+    vi.advanceTimersByTime(INPUT_DEBOUNCE_MS)
+    await flushPromises()
+
+    expect(payloadOf(store, 'b0653a')).toEqual([{ type: 'text', text: 'Hi' }])
+  })
+
+  it('saves an upload straight away, even while a message is empty', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo')
+    const { user, store } = await renderIndexPage('/?node=b0653a')
+    await user.click(screen.getByRole('button', { name: /add message/i }))
+
+    await user.upload(screen.getByLabelText('Upload images'), new File(['x'], 'photo.png', { type: 'image/png' }))
+
+    expect(payloadOf(store, 'b0653a')).toEqual([
+      { type: 'text', text: 'Hello there' },
+      { type: 'attachment', attachment: 'blob:photo' },
+    ])
+  })
+
+  it('does not warn when leaving without an empty message', async () => {
+    const confirm = stubConfirm(true)
+    const { user, nodeQuery } = await renderIndexPage('/?node=b0653a')
+
+    await user.click(node('Date Time: Business Hours'))
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(nodeQuery()).toBe('d09c08')
+  })
+
+  it('warns before switching nodes with an empty message, and stays when cancelled', async () => {
+    const confirm = stubConfirm(false)
+    const { user, nodeQuery } = await renderIndexPage('/?node=b0653a')
+    await user.click(screen.getByRole('button', { name: /add message/i }))
+
+    await user.click(node('Date Time: Business Hours'))
+
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(nodeQuery()).toBe('b0653a')
+    expect(messageField(2)).toHaveValue('')
+  })
+
+  it('discards the held changes when leaving is confirmed', async () => {
+    stubConfirm(true)
+    const { user, store, nodeQuery } = await renderIndexPage('/?node=b0653a')
+    await user.click(screen.getByRole('button', { name: /add message/i }))
+
+    await user.click(node('Date Time: Business Hours'))
+
+    expect(nodeQuery()).toBe('d09c08')
+    expect(payloadOf(store, 'b0653a')).toEqual([{ type: 'text', text: 'Hello there' }])
+  })
+
+  it('warns before closing the drawer with an empty message', async () => {
+    const confirm = stubConfirm(false)
+    const { user } = await renderIndexPage('/?node=b0653a')
+    await user.click(screen.getByRole('button', { name: /add message/i }))
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(drawer()).toBeInTheDocument()
+  })
+})
+
 describe('deleting a node', () => {
   it('deletes on confirm, closes the drawer and focuses the + button where it was', async () => {
     const { user, store, nodeQuery } = await renderIndexPage('/?node=b0653a')

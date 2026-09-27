@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { ItemPatch } from '../stores/flow'
 import type { FlowItem } from '../types'
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
+import { useMessageDraft } from '../composables/useMessageDraft'
 import { INPUT_DEBOUNCE_MS } from '../utils/constants'
 import { getItemContent } from '../utils/nodeMeta'
+import AttachmentTiles from './AttachmentTiles.vue'
+import MessageTexts from './MessageTexts.vue'
 
 const props = defineProps<{ item: FlowItem }>()
 
@@ -56,6 +59,37 @@ function onCommentInput() {
   schedule({ data: { comment: commentDraft.value } })
 }
 
+const {
+  texts: messageTexts,
+  attachments: messageAttachments,
+  hasEmptyText,
+  reset: resetMessage,
+  editText,
+  addText,
+  removeText,
+  addAttachments,
+  removeAttachment,
+} = useMessageDraft(toRef(props, 'item'), {
+  later: payload => schedule({ data: { payload } }),
+  now: (payload) => {
+    schedule({ data: { payload } })
+    flush()
+  },
+  flush,
+})
+
+const hasUnsavedChanges = computed(() => hasEmptyText.value)
+
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  if (hasUnsavedChanges.value)
+    event.preventDefault()
+}
+
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+
+defineExpose({ hasUnsavedChanges })
+
 const confirmingDelete = ref(false)
 const deleteButton = ref<HTMLButtonElement | null>(null)
 const cancelDeleteButton = ref<HTMLButtonElement | null>(null)
@@ -84,6 +118,7 @@ watch(() => props.item.id, () => {
   titleDraft.value = content.value?.title ?? ''
   descriptionDraft.value = content.value?.description ?? ''
   commentDraft.value = props.item.type === 'addComment' ? props.item.data.comment : ''
+  resetMessage()
 }, { immediate: true, flush: 'sync' })
 
 onBeforeUnmount(flush)
@@ -147,19 +182,19 @@ const TRIGGER_LABELS = {
       <dd>{{ props.item.data.oncePerContact ? 'Yes' : 'No' }}</dd>
     </dl>
 
-    <section v-else-if="props.item.type === 'sendMessage'" class="flex flex-col gap-2">
-      <h3 class="font-medium text-gray-500">
-        Messages
-      </h3>
-      <template v-for="(payload, index) in props.item.data.payload" :key="index">
-        <p v-if="payload.type === 'text'" class="whitespace-pre-line rounded-lg bg-emerald-50 p-3">
-          {{ payload.text }}
-        </p>
-        <a v-else :href="payload.attachment" target="_blank" rel="noopener noreferrer" class="block">
-          <img :src="payload.attachment" alt="Message attachment" loading="lazy" class="rounded-lg border border-gray-200">
-        </a>
-      </template>
-    </section>
+    <template v-else-if="props.item.type === 'sendMessage'">
+      <MessageTexts
+        :texts="messageTexts"
+        @change="editText"
+        @add="addText"
+        @remove="removeText"
+      />
+      <AttachmentTiles
+        :attachments="messageAttachments"
+        @add="addAttachments"
+        @remove="removeAttachment"
+      />
+    </template>
 
     <label v-else-if="props.item.type === 'addComment'" for="node-comment" class="flex flex-col gap-1">
       <span class="text-gray-500">Comment</span>

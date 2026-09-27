@@ -55,7 +55,7 @@ describe('selecting nodes', () => {
 
     expect(nodeQuery()).toBe('b0653a')
     expect(titleInput()).toHaveValue('Welcome Message')
-    expect(screen.getByText('Hello there')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Message 1' })).toHaveValue('Hello there')
   })
 
   it('uses replace, so selecting nodes doesn\'t add history entries', async () => {

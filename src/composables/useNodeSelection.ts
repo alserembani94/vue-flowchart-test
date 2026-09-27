@@ -1,12 +1,22 @@
 import type { Node, NodeChange } from '@vue-flow/core'
 import type { Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { computed, watch } from 'vue'
+import { computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFlowStore } from '../stores/flow'
 import { isSelectable } from '../utils/nodeMeta'
 
-export function useNodeSelection(nodes: Ref<Node[]>) {
+export interface SelectionGuard {
+  hasUnsavedChanges: () => boolean
+  confirmLeave: () => boolean
+}
+
+const noGuard: SelectionGuard = {
+  hasUnsavedChanges: () => false,
+  confirmLeave: () => true,
+}
+
+export function useNodeSelection(nodes: Ref<Node[]>, guard: SelectionGuard = noGuard) {
   const flow = useFlowStore()
   const route = useRoute()
   const router = useRouter()
@@ -53,9 +63,18 @@ export function useNodeSelection(nodes: Ref<Node[]>) {
     )
 
     if (selected) {
+      const leaving = selectedId.value !== null && selected.id !== selectedId.value
+      if (leaving && !guard.confirmLeave()) {
+        void nextTick(syncSelection)
+        return
+      }
       selectedId.value = selected.id
     }
     else if (selects.some(change => !change.selected && change.id === selectedId.value)) {
+      if (guard.hasUnsavedChanges()) {
+        void nextTick(syncSelection)
+        return
+      }
       selectedId.value = null
     }
   }

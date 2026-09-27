@@ -113,6 +113,7 @@ export async function renderIndexPage(url = '/') {
       type: settled(events.type),
       clear: settled(events.clear),
       selectOptions: settled(events.selectOptions),
+      upload: settled(events.upload),
     },
     router,
     queryClient,
