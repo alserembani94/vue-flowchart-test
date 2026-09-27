@@ -54,6 +54,7 @@ const VueFlowStub = defineComponent({
 
     return () =>
       h('div', [
+        slots.default?.(),
         h('div', { 'data-testid': 'flow-pane', 'onClick': () => emit('paneClick') }),
         ...props.nodes.map((node) => {
           const focusable = node.focusable !== false
@@ -75,6 +76,11 @@ const VueFlowStub = defineComponent({
   },
 })
 
+const PanelStub = defineComponent({
+  name: 'Panel',
+  setup: (_, { slots }) => () => h('div', { 'data-testid': 'flow-panel' }, slots.default?.()),
+})
+
 export async function emitNodesChange(changes: NodeChange[]) {
   emitFlow?.('nodesChange', changes)
   return flushPromises()
@@ -94,7 +100,7 @@ export async function renderIndexPage(url = '/') {
   render(IndexPage, {
     global: {
       plugins: [router, pinia, [VueQueryPlugin, { queryClient }]],
-      stubs: { VueFlow: VueFlowStub },
+      stubs: { VueFlow: VueFlowStub, Background: true, Panel: PanelStub },
     },
   })
   await flushPromises()

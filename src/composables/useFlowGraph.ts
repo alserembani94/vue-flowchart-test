@@ -1,23 +1,29 @@
-import type { Edge, Node, NodeDragEvent } from '@vue-flow/core'
+import type { Edge, Node, NodeDragEvent, ViewportTransform } from '@vue-flow/core'
 import type { LayoutDirection } from './useLayout'
 import { useVueFlow } from '@vue-flow/core'
 import { nextTick, shallowRef, watch } from 'vue'
 import { useFlowStore } from '../stores/flow'
 import { computeGraph } from '../utils/computeGraph'
 import { createInsertFollower } from '../utils/insertFollow'
-import { withInsertPoints } from '../utils/insertPoints'
+import { insertNodeId, withInsertPoints } from '../utils/insertPoints'
+import { createMoveHistory } from '../utils/moveHistory'
 import { getItemAriaLabel } from '../utils/nodeMeta'
 import { useLayout } from './useLayout'
 
 export function useFlowGraph() {
   const flow = useFlowStore()
   const { layout } = useLayout()
-  const { fitView, findNode, updateNode } = useVueFlow()
+  const { fitView, findNode, updateNode, getViewport, setViewport } = useVueFlow()
 
   const nodes = shallowRef<Node[]>([])
   const edges = shallowRef<Edge[]>([])
 
   let hasFitted = false
+  let originalViewport: ViewportTransform | null = null
+
+  const moveNode = (id: string, position: { x: number, y: number }) => updateNode(id, { position })
+  const insertFollower = createInsertFollower(findNode, moveNode)
+  const history = createMoveHistory(findNode, moveNode)
 
   async function layoutGraph(direction: LayoutDirection) {
     nodes.value = layout(nodes.value, edges.value, direction)
@@ -27,6 +33,7 @@ export function useFlowGraph() {
     hasFitted = true
     await nextTick()
     await fitView({ padding: 0.5 })
+    originalViewport = getViewport()
   }
 
   watch(() => flow.structureKey, () => {
@@ -40,6 +47,7 @@ export function useFlowGraph() {
       return position ? { ...node, position: { ...position } } : node
     })
     edges.value = composed.edges
+    history.clear()
 
     if (hadNodes && !hasNewNodes)
       void nextTick(async () => layoutGraph('TB'))
@@ -56,9 +64,8 @@ export function useFlowGraph() {
     },
   )
 
-  const insertFollower = createInsertFollower(findNode, (id, position) => updateNode(id, { position }))
-
   function onNodeDragStart({ node }: NodeDragEvent) {
+    history.begin([node.id, insertNodeId(node.id)])
     insertFollower.start(node)
   }
 
@@ -68,7 +75,35 @@ export function useFlowGraph() {
 
   function onNodeDragStop() {
     insertFollower.stop()
+    history.end()
   }
 
-  return { nodes, edges, layoutGraph, onNodeDragStart, onNodeDrag, onNodeDragStop }
+  function undoMove() {
+    history.undo()
+  }
+
+  async function resetLayout() {
+    history.clear()
+    await layoutGraph('TB')
+  }
+
+  async function fitOriginalView() {
+    if (originalViewport)
+      await setViewport(originalViewport, { duration: 200 })
+    else
+      await fitView({ padding: 0.5, duration: 200 })
+  }
+
+  return {
+    nodes,
+    edges,
+    layoutGraph,
+    onNodeDragStart,
+    onNodeDrag,
+    onNodeDragStop,
+    canUndo: history.canUndo,
+    undoMove,
+    resetLayout,
+    fitOriginalView,
+  }
 }

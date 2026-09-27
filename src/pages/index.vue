@@ -5,11 +5,12 @@ import type { FlowNodeData } from '../types'
 import type { InsertNodeData } from '../utils/insertPoints'
 import { useQuery } from '@tanstack/vue-query'
 import { Background } from '@vue-flow/background'
-import { useVueFlow, VueFlow } from '@vue-flow/core'
-import { computed, nextTick, ref, watch } from 'vue'
+import { Panel, useVueFlow, VueFlow } from '@vue-flow/core'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getProcesses } from '../api/process'
 import CreateNodeForm from '../components/CreateNodeForm.vue'
 import Drawer from '../components/Drawer.vue'
+import FlowToolbar from '../components/FlowToolbar.vue'
 import InsertButton from '../components/InsertButton.vue'
 import NodeCard from '../components/NodeCard.vue'
 import NodeDetails from '../components/NodeDetails.vue'
@@ -35,7 +36,18 @@ watch(processes, (loaded) => {
     flow.setItems(loaded)
 }, { immediate: true })
 
-const { nodes, layoutGraph, edges, onNodeDragStart, onNodeDrag, onNodeDragStop } = useFlowGraph()
+const {
+  nodes,
+  layoutGraph,
+  edges,
+  onNodeDragStart,
+  onNodeDrag,
+  onNodeDragStop,
+  canUndo,
+  undoMove,
+  resetLayout,
+  fitOriginalView,
+} = useFlowGraph()
 const details = ref<InstanceType<typeof NodeDetails> | null>(null)
 
 const LEAVE_MESSAGE = 'A message is empty, so your message changes can\'t be saved. Leave anyway and lose them?'
@@ -70,6 +82,19 @@ function onNodeClick({ node }: NodeMouseEvent) {
 
 const createParentId = ref<string | null>(null)
 const drawerOpen = computed(() => !!selectedItem.value || !!createParentId.value)
+
+function onUndoShortcut(event: KeyboardEvent) {
+  const isUndo = event.key.toLowerCase() === 'z' && (event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
+  const target = event.target as HTMLElement | null
+  if (!isUndo || drawerOpen.value || target?.closest('input, textarea, select, [contenteditable="true"]'))
+    return
+
+  event.preventDefault()
+  undoMove()
+}
+
+onMounted(() => window.addEventListener('keydown', onUndoShortcut))
+onBeforeUnmount(() => window.removeEventListener('keydown', onUndoShortcut))
 
 const createContext = computed(() => {
   const parentId = createParentId.value
@@ -202,6 +227,10 @@ function onGraphFocusin(event: FocusEvent) {
         @pane-click="closeDrawer()"
       >
         <Background />
+
+        <Panel position="top-left">
+          <FlowToolbar :can-undo="canUndo" @undo="undoMove" @reset="resetLayout" @fit="fitOriginalView" />
+        </Panel>
 
         <template #node-trigger="{ selected }: NodeProps<FlowNodeData<'trigger'>>">
           <NodeCard

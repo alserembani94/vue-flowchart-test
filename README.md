@@ -18,6 +18,7 @@ The project started as a frontend assessment, and its look is based on the desig
 - Edit a Business Hours node's timezone and the start and end time of each day.
 - Add a node with the **+** button at the end of a branch or between two steps.
 - Delete a node. Its children move up to its parent.
+- Use the toolbar to undo a node move, reset the layout, or go back to the starting view. When the drawer is closed, Cmd/Ctrl+Z also undoes the last move.
 - A Business Hours node comes with its own Success and Failure branches.
 - Fully usable with a keyboard.
 
@@ -110,6 +111,8 @@ Buttons and form fields come from shared components in `src/components/ui/`, so 
 - **Images are saved straight away.** Adding or removing an image is saved immediately, even while a text is empty. Only images up to 25 MB are accepted. Other files are rejected with a message, and the valid files in the same batch are still added.
 - **Timezones are stored by name.** The dropdown saves the standard IANA name, like `Asia/Kuala_Lumpur`, and shows a label like `(GMT+08:00) Kuala Lumpur`. The offsets are worked out when the page loads, so they follow daylight saving time, and the list is ordered by offset. The common timezones are listed in `src/utils/constants.ts`.
 - **Business hours must make sense.** Each day needs a start and an end time, and the end can't be before the start. An invalid day isn't saved. When you leave that day's row, it goes back to its last valid times. New Business Hours nodes start with every day from 9:00 to 17:00.
+- **Undo only covers moves, and resets with the layout.** The toolbar's Undo steps back through node drags, up to the last 50. Resetting the layout, or adding or deleting a node, lays the graph out again, so the move history is cleared at the same time.
+- **"Fit view" goes back to where you started.** It restores the zoom and position from when the graph first loaded, rather than fitting whatever is on screen now.
 - **Uploads stay in the browser.** An uploaded image becomes a local `blob:` URL. It's released when the image is removed or its node is deleted.
 
 ### Accessibility
@@ -118,6 +121,7 @@ Buttons and form fields come from shared components in `src/components/ui/`, so 
 - **Focus management.** Opening the drawer moves focus into it. Closing it with Escape or the close button returns focus to the node or + button you started from.
 - **Accessible names.** Every node has a label, like "Send Message: Welcome Message", and every + button says where it adds a node, like "Add node after Trigger". The create form tells screen readers where the new node will go.
 - **Clear states.** Focused nodes show a lighter ring and selected nodes show a stronger one. Form errors are linked to their fields.
+- **Toolbar.** The toolbar is one Tab stop. The arrow keys move between its buttons, and Home and End jump to the first and last. Disabled buttons are skipped. Each button shows its name on hover and on focus.
 
 ### Tooling
 

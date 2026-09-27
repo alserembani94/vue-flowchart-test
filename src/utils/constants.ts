@@ -47,3 +47,5 @@ export const TIMEZONES = [
   { zone: 'Australia/Sydney', name: 'Sydney' },
   { zone: 'Pacific/Auckland', name: 'Auckland' },
 ] as const
+
+export const MOVE_HISTORY_LIMIT = 50
