@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/vue'
+import { fireEvent, screen, within } from '@testing-library/vue'
 import { flushPromises } from '@vue/test-utils'
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -261,6 +261,23 @@ describe('editing a message', () => {
 
     expect(confirm).toHaveBeenCalledOnce()
     expect(drawer()).toBeInTheDocument()
+  })
+})
+
+describe('editing business hours', () => {
+  it('saves the timezone and times to the store', async () => {
+    const { user, store } = await renderIndexPage('/?node=d09c08')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Timezone' }), 'Asia/Kuala_Lumpur')
+    await fireEvent.update(screen.getByLabelText('Monday end time'), '18:00')
+    vi.advanceTimersByTime(INPUT_DEBOUNCE_MS)
+    await flushPromises()
+
+    expect(store.itemsById.get('d09c08')?.data).toMatchObject({
+      timezone: 'Asia/Kuala_Lumpur',
+      times: [{ day: 'mon', startTime: '09:00', endTime: '18:00' }],
+    })
   })
 })
 

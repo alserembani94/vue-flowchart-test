@@ -15,6 +15,7 @@ The project started as a frontend assessment, and its look is based on the desig
 - Edit an Add Comment node's comment.
 - Edit a Send Message node's texts: add, change, or remove them.
 - Attach images to a Send Message node, shown as tiles. Click a tile to remove the image.
+- Edit a Business Hours node's timezone and the start and end time of each day.
 - Add a node with the **+** button at the end of a branch or between two steps.
 - Delete a node. Its children move up to its parent.
 - A Business Hours node comes with its own Success and Failure branches.
@@ -107,6 +108,8 @@ Buttons and form fields come from shared components in `src/components/ui/`, so 
 - **A message is one ordered list.** A Send Message node's texts and images are stored together in `payload`, and their order matters. The drawer shows texts and images in separate groups, and anything new goes at the end of the list.
 - **Empty texts hold back message changes.** A text can't be empty. While one is, text changes aren't saved, and the Add message button is disabled. Leaving the node, or reloading the page, asks you to confirm first, because the held changes will be lost.
 - **Images are saved straight away.** Adding or removing an image is saved immediately, even while a text is empty. Only images up to 25 MB are accepted. Other files are rejected with a message, and the valid files in the same batch are still added.
+- **Timezones are stored by name.** The dropdown saves the standard IANA name, like `Asia/Kuala_Lumpur`, and shows a label like `(GMT+08:00) Kuala Lumpur`. The offsets are worked out when the page loads, so they follow daylight saving time, and the list is ordered by offset. The common timezones are listed in `src/utils/constants.ts`.
+- **Business hours must make sense.** Each day needs a start and an end time, and the end can't be before the start. An invalid day isn't saved. When you leave that day's row, it goes back to its last valid times. New Business Hours nodes start with every day from 9:00 to 17:00.
 - **Uploads stay in the browser.** An uploaded image becomes a local `blob:` URL. It's released when the image is removed or its node is deleted.
 
 ### Accessibility
@@ -234,3 +237,4 @@ To stop failing changes from being merged, turn on branch protection for `main` 
 - **Uploaded images only live in memory.** They disappear when you reload the page.
 - **Removing an image is instant.** There's no confirmation or undo.
 - **Images can't be opened full size** from the drawer.
+- **Days can't be closed.** Every day of a Business Hours node has opening times. You can change them, but you can't remove a day or mark it closed.

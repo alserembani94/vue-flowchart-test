@@ -3,7 +3,9 @@ import type { ContentItem } from '../utils/nodeMeta'
 import { defineStore } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
 import { attachmentUrls, revokeBlobUrls } from '../utils/attachments'
+import { DEFAULT_BUSINESS_HOURS, WEEKDAYS } from '../utils/constants'
 import { isContentItem } from '../utils/nodeMeta'
+import { isValidSchedule } from '../utils/schedule'
 
 export interface ItemPatch {
   name?: string
@@ -59,8 +61,15 @@ export const useFlowStore = defineStore('flow', () => {
         return false
     }
 
+    const times = item.type === 'dateTime' && patch.data && 'times' in patch.data ? patch.data.times ?? [] : undefined
+    if (times && !isValidSchedule(times))
+      return false
+
     if (name !== undefined)
       item.name = name
+
+    if (item.type === 'dateTime' && times)
+      item.data.times = times.map(time => ({ ...time }))
 
     if (item.type === 'sendMessage' && payload) {
       const kept = new Set(attachmentUrls(payload))
@@ -72,7 +81,7 @@ export const useFlowStore = defineStore('flow', () => {
       const { description, ...rest } = patch.data
       const data = item.data as Record<string, unknown>
       for (const [key, value] of Object.entries(rest)) {
-        if (key !== 'comment' && key !== 'payload' && key in data)
+        if (key !== 'comment' && key !== 'payload' && key !== 'times' && key in data)
           data[key] = value
       }
 
@@ -119,7 +128,7 @@ export const useFlowStore = defineStore('flow', () => {
           type: 'dateTime',
           name,
           data: {
-            times: [],
+            times: WEEKDAYS.map(day => ({ day, ...DEFAULT_BUSINESS_HOURS })),
             connectors: [successId, failureId],
             timezone: 'UTC',
             action: 'businessHours',

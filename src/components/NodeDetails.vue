@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { ItemPatch } from '../stores/flow'
-import type { FlowItem } from '../types'
+import type { FlowItem, ScheduleTime } from '../types'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import { useMessageDraft } from '../composables/useMessageDraft'
 import { INPUT_DEBOUNCE_MS } from '../utils/constants'
 import { getItemContent } from '../utils/nodeMeta'
 import AttachmentTiles from './AttachmentTiles.vue'
+import BusinessHoursEditor from './BusinessHoursEditor.vue'
 import MessageTexts from './MessageTexts.vue'
 import BaseButton from './ui/BaseButton.vue'
 import BaseInput from './ui/BaseInput.vue'
@@ -61,6 +62,15 @@ function onDescriptionInput() {
 
 function onCommentInput() {
   schedule({ data: { comment: commentDraft.value } })
+}
+
+function onTimezoneChange(timezone: string) {
+  schedule({ data: { timezone } })
+  flush()
+}
+
+function onTimesChange(times: ScheduleTime[]) {
+  schedule({ data: { times } })
 }
 
 const {
@@ -127,16 +137,6 @@ watch(() => props.item.id, () => {
 
 onBeforeUnmount(flush)
 
-const DAY_LABELS = {
-  mon: 'Monday',
-  tue: 'Tuesday',
-  wed: 'Wednesday',
-  thu: 'Thursday',
-  fri: 'Friday',
-  sat: 'Saturday',
-  sun: 'Sunday',
-} as const
-
 const TRIGGER_LABELS = {
   conversationOpened: 'Conversation Opened',
 } as const
@@ -202,52 +202,15 @@ const TRIGGER_LABELS = {
       />
     </FormField>
 
-    <template v-else-if="props.item.type === 'dateTime'">
-      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-        <dt>Timezone</dt>
-        <dd>{{ props.item.data.timezone }}</dd>
-        <dt>Action</dt>
-        <dd>{{ props.item.data.action }}</dd>
-        <dt>Connectors</dt>
-        <dd class="flex flex-wrap gap-1">
-          <code v-for="id in props.item.data.connectors" :key="id" class="rounded bg-gray-100 px-1.5">{{ id }}</code>
-        </dd>
-      </dl>
-
-      <section class="flex flex-col gap-2">
-        <h3 class="font-medium text-gray-500">
-          Schedule
-        </h3>
-        <table class="w-full">
-          <thead class="text-left text-gray-500">
-            <tr>
-              <th class="font-normal py-1">
-                Day
-              </th>
-              <th class="font-normal py-1">
-                Start
-              </th>
-              <th class="font-normal py-1">
-                End
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="time in props.item.data.times" :key="time.day" class="border-t border-gray-100">
-              <td class="py-1">
-                {{ DAY_LABELS[time.day] }}
-              </td>
-              <td class="py-1">
-                {{ time.startTime }}
-              </td>
-              <td class="py-1">
-                {{ time.endTime }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-    </template>
+    <BusinessHoursEditor
+      v-else-if="props.item.type === 'dateTime'"
+      :key="props.item.id"
+      :timezone="props.item.data.timezone"
+      :times="props.item.data.times"
+      @update:timezone="onTimezoneChange"
+      @update:times="onTimesChange"
+      @commit="flush"
+    />
 
     <section v-if="content" class="border-t border-gray-200 pt-4">
       <BaseButton
@@ -273,14 +236,6 @@ const TRIGGER_LABELS = {
         </div>
       </div>
     </section>
-
-    <!-- TODO: Remove this after done with development -->
-    <details class="rounded-lg border border-gray-200">
-      <summary class="cursor-pointer p-2 text-gray-500">
-        Raw data
-      </summary>
-      <pre class="overflow-x-auto border-t border-gray-200 p-2 text-xs">{{ JSON.stringify(props.item, null, 2) }}</pre>
-    </details>
   </div>
 </template>
 

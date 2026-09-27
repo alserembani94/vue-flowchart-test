@@ -37,15 +37,19 @@ type DateTimeConnectorFlowItem = {
   }
 } & CommonAttrs
 
+export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
+
+export interface ScheduleTime {
+  startTime: string
+  endTime: string
+  day: Weekday
+}
+
 type DateTimeFlowItem = {
   type: 'dateTime'
   name: string
   data: {
-    times: {
-      startTime: string
-      endTime: string
-      day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
-    }[]
+    times: ScheduleTime[]
     connectors: FlowItemId[]
     timezone: string
     action: 'businessHours'

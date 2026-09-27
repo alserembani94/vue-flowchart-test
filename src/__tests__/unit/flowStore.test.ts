@@ -150,6 +150,33 @@ describe('updateItem payload', () => {
   })
 })
 
+describe('updateItem schedule', () => {
+  const timesOf = (id: string) => {
+    const entry = item(id)
+    return entry.type === 'dateTime' ? entry.data.times : undefined
+  }
+
+  it('saves valid times and a new timezone', () => {
+    const times = [{ day: 'mon' as const, startTime: '08:30', endTime: '08:30' }]
+
+    expect(flow.updateItem('d09c08', { data: { times, timezone: 'Asia/Kuala_Lumpur' } })).toBe(true)
+    expect(timesOf('d09c08')).toEqual(times)
+    expect(item('d09c08').data).toMatchObject({ timezone: 'Asia/Kuala_Lumpur' })
+  })
+
+  it('rejects an end time before the start time and changes nothing', () => {
+    const times = [{ day: 'mon' as const, startTime: '17:00', endTime: '09:00' }]
+
+    expect(flow.updateItem('d09c08', { data: { times, timezone: 'Asia/Tokyo' } })).toBe(false)
+    expect(timesOf('d09c08')).toEqual([{ day: 'mon', startTime: '09:00', endTime: '17:00' }])
+    expect(item('d09c08').data).toMatchObject({ timezone: 'UTC' })
+  })
+
+  it('rejects empty times', () => {
+    expect(flow.updateItem('d09c08', { data: { times: [{ day: 'mon', startTime: '', endTime: '17:00' }] } })).toBe(false)
+  })
+})
+
 describe('insertItem', () => {
   it('adds a node at the end when the parent has no children', () => {
     const id = flow.insertItem({ type: 'addComment', name: ' Note ', description: ' Why ' }, 'b0653a')!
@@ -181,6 +208,16 @@ describe('insertItem', () => {
     expect(parentOf(successId)).toBe(id)
     expect(parentOf(failureId)).toBe(id)
     expect(parentOf('b0653a')).toBe(successId)
+  })
+
+  it('gives a new Business Hours node every day from 9 to 5', () => {
+    const id = flow.insertItem({ type: 'businessHours', name: 'Hours' }, 'b0653a')!
+    const dateTime = item(id)
+    if (dateTime.type !== 'dateTime')
+      throw new Error('expected dateTime')
+
+    expect(dateTime.data.times.map(time => time.day)).toEqual(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])
+    expect(dateTime.data.times.every(time => time.startTime === '09:00' && time.endTime === '17:00')).toBe(true)
   })
 
   it('rejects an empty title or an unknown parent', () => {

@@ -1,6 +1,6 @@
 import type { FlowItem } from '../../types'
 import userEvent from '@testing-library/user-event'
-import { render, screen } from '@testing-library/vue'
+import { fireEvent, render, screen } from '@testing-library/vue'
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import NodeDetails from '../../components/NodeDetails.vue'
@@ -72,12 +72,14 @@ describe('content by type', () => {
     expect(screen.getByRole('textbox', { name: 'Comment (optional)' })).toHaveValue('Off hours message')
   })
 
-  it('shows the business hours schedule', () => {
+  it('shows the business hours editor without the action or connectors', () => {
     renderDetails(dateTime)
 
-    const row = screen.getByRole('row', { name: 'Monday 09:00 17:00' })
-    expect(row).toBeInTheDocument()
-    expect(screen.getByText('UTC')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Timezone' })).toHaveValue('UTC')
+    expect(screen.getByLabelText('Monday start time')).toHaveValue('09:00')
+    expect(screen.queryByText('businessHours')).not.toBeInTheDocument()
+    expect(screen.queryByText('Connectors')).not.toBeInTheDocument()
+    expect(screen.queryByText('161f52')).not.toBeInTheDocument()
   })
 
   it('fills the title and description inputs', () => {
@@ -211,6 +213,36 @@ describe('editing a message', () => {
       { type: 'text', text: 'Hello there' },
       { type: 'attachment', attachment: 'blob:new' },
     ] } }]])
+  })
+})
+
+describe('editing business hours', () => {
+  it('emits a new timezone straight away', async () => {
+    const view = renderDetails(dateTime)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Timezone' }), 'Asia/Tokyo')
+
+    expect(view.emitted('update')).toEqual([['d09c08', { data: { timezone: 'Asia/Tokyo' } }]])
+  })
+
+  it('emits time changes after the debounce', async () => {
+    const view = renderDetails(dateTime)
+
+    await fireEvent.update(screen.getByLabelText('Monday end time'), '18:00')
+    expect(view.emitted('update')).toBeUndefined()
+
+    vi.advanceTimersByTime(INPUT_DEBOUNCE_MS)
+
+    expect(view.emitted('update')).toEqual([['d09c08', { data: { times: [{ day: 'mon', startTime: '09:00', endTime: '18:00' }] } }]])
+  })
+
+  it('saves a pending time change when focus leaves the row', async () => {
+    const view = renderDetails(dateTime)
+
+    await fireEvent.update(screen.getByLabelText('Monday end time'), '18:00')
+    await fireEvent.focusOut(screen.getByLabelText('Monday end time'), { relatedTarget: null })
+
+    expect(view.emitted('update')).toHaveLength(1)
   })
 })
 
