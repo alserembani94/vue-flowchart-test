@@ -4,6 +4,7 @@ import { ref } from 'vue';
 const props = defineProps<{
   open: boolean;
   title?: string;
+  describedby?: string;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -29,6 +30,7 @@ defineExpose({ focus });
       ref="panel"
       tabindex="-1"
       aria-labelledby="drawer-title"
+      :aria-describedby="props.describedby"
       class="fixed inset-y-0 right-0 z-10 w-96 max-w-full bg-white shadow-xl flex flex-col focus:outline-none"
       @keydown.esc="emit('close')"
     >

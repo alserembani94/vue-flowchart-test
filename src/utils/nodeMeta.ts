@@ -69,3 +69,11 @@ export function getItemAriaLabel(item: FlowItem): string {
   const title = getItemTitle(item);
   return title === label ? label : `${label}: ${title}`;
 }
+
+export function getItemDisplayName(item: FlowItem, itemsById: Map<string, FlowItem>): string {
+  if (item.type !== "dateTimeConnector") return getItemTitle(item);
+
+  const branch = item.data.connectorType === "success" ? "Success" : "Failure";
+  const condition = itemsById.get(item.parentId.toString());
+  return condition ? `${branch} branch of ${getItemTitle(condition)}` : `${branch} branch`;
+}

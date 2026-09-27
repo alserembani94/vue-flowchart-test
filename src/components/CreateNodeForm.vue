@@ -2,6 +2,12 @@
 import { computed, nextTick, ref } from 'vue';
 import type { NewNodeInput, NewNodeType } from '../stores/flow';
 
+const props = defineProps<{
+  afterName: string;
+  afterIcon: string;
+  hasNextSteps: boolean;
+}>();
+
 const emit = defineEmits<{
   submit: [input: NewNodeInput];
   cancel: [];
@@ -44,6 +50,12 @@ async function onSubmit() {
 
 <template>
   <form class="flex flex-col gap-3 text-sm" novalidate @submit.prevent="onSubmit">
+    <p id="create-context" class="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+      <span class="text-gray-500">Adding after</span>
+      <i :class="props.afterIcon" aria-hidden="true"></i>
+      <span class="min-w-0 truncate font-medium">{{ props.afterName }}</span>
+    </p>
+
     <label class="flex flex-col gap-1">
       <span class="text-gray-500">Type of node</span>
       <select
@@ -62,6 +74,9 @@ async function onSubmit() {
         </option>
       </select>
       <span v-if="typeInvalid" id="create-type-error" class="text-red-600">Type of node is required</span>
+      <span v-if="type === 'businessHours' && props.hasNextSteps" class="text-gray-500">
+        The steps after this point will move under its Success branch.
+      </span>
     </label>
 
     <label class="flex flex-col gap-1">

@@ -54,6 +54,12 @@ describe("Drawer", () => {
     expect(wrapper.get("aside header button").attributes("aria-label")).toBe("Close");
   });
 
+  it("passes a description id to the panel", () => {
+    const wrapper = mount(Drawer, { props: { open: true, describedby: "create-context" } });
+
+    expect(wrapper.get("aside").attributes("aria-describedby")).toBe("create-context");
+  });
+
   it("moves focus to the panel with focus()", () => {
     const wrapper = mount(Drawer, { props: { open: true }, attachTo: document.body });
 

@@ -56,7 +56,7 @@ describe("insert buttons", () => {
     await mountPage();
 
     expect(insertButton("1").attributes("aria-label")).toBe("Add node after Trigger");
-    expect(insertButton("161f52").attributes("aria-label")).toBe("Add node after Success branch");
+    expect(insertButton("161f52").attributes("aria-label")).toBe("Add node after Success branch of Business Hours");
     expect(insertButton("b0653a").attributes("aria-label")).toBe("Add node after Welcome Message");
     expect(insertButton("b0653a").find("i.pi-plus").exists()).toBe(true);
   });
@@ -99,6 +99,84 @@ describe("insert button colors", () => {
     await flushPromises();
 
     expect(buttonStyle("b0653a").style.borderColor).toBe(INSERT_END_COLOR);
+  });
+});
+
+describe("create form context", () => {
+  const context = () => wrapper().get("#create-context");
+
+  it("shows the node it will be added after, with its icon", async () => {
+    await mountPage();
+
+    await openCreateAfter("b0653a");
+
+    expect(context().text()).toContain("Adding after");
+    expect(context().text()).toContain("Welcome Message");
+    expect(context().find("i.pi-send").exists()).toBe(true);
+  });
+
+  it("names a connector by its branch and condition", async () => {
+    await mountPage();
+
+    await openCreateAfter("161f52");
+
+    expect(context().text()).toContain("Success branch of Business Hours");
+  });
+
+  it("describes the drawer with the context for screen readers", async () => {
+    await mountPage();
+
+    await openCreateAfter("b0653a");
+
+    expect(drawer().attributes("aria-describedby")).toBe("create-context");
+  });
+
+  it("marks only the + button whose form is open as active", async () => {
+    await mountPage();
+
+    await openCreateAfter("b0653a");
+
+    const active = insertButton("b0653a").element as HTMLButtonElement;
+    expect(active.getAttribute("aria-expanded")).toBe("true");
+    expect(active.style.backgroundColor).toBe(INSERT_END_COLOR);
+    expect(active.style.color).toBe("white");
+    expect(insertButton("1").attributes("aria-expanded")).toBe("false");
+    expect((insertButton("1").element as HTMLButtonElement).style.backgroundColor).toBe("");
+  });
+
+  it("clears the form and updates the context when switching to another +", async () => {
+    await mountPage();
+    await openCreateAfter("b0653a");
+    await fillCreateForm({ type: "sendMessage", title: "Half typed" });
+
+    await openCreateAfter("1");
+
+    expect(context().text()).toContain("Trigger");
+    expect(wrapper().get<HTMLInputElement>('aside input[name="title"]').element.value).toBe("");
+    expect(insertButton("1").attributes("aria-expanded")).toBe("true");
+    expect(insertButton("b0653a").attributes("aria-expanded")).toBe("false");
+  });
+
+  it("notes that next steps move under Success when inserting Business Hours between nodes", async () => {
+    await mountPage();
+    await openCreateAfter("161f52");
+
+    await wrapper().get('aside select[name="type"]').setValue("businessHours");
+
+    expect(form().text()).toContain("will move under its Success branch");
+  });
+
+  it("leaves the note out at the end of the flow or for other types", async () => {
+    await mountPage();
+    await openCreateAfter("b0653a");
+    await wrapper().get('aside select[name="type"]').setValue("businessHours");
+
+    expect(form().text()).not.toContain("will move under its Success branch");
+
+    await openCreateAfter("161f52");
+    await wrapper().get('aside select[name="type"]').setValue("sendMessage");
+
+    expect(form().text()).not.toContain("will move under its Success branch");
   });
 });
 

@@ -6,7 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { computeGraph } from '../utils/computeGraph';
 import { useVueFlow, VueFlow, type Edge, type Node, type NodeChange, type NodeMouseEvent, type NodeProps } from '@vue-flow/core'
 import { useLayout, type LayoutDirection } from '../utils/useLayout';
-import { NODE_META, getItemAriaLabel, getItemTitle, isSelectable } from '../utils/nodeMeta';
+import { NODE_META, getItemAriaLabel, getItemDisplayName, isSelectable } from '../utils/nodeMeta';
 import { INSERT_NODE_TYPE, insertNodeId, withInsertPoints, type InsertNodeData } from '../utils/insertPoints';
 import { isContentItem, useFlowStore, type ItemPatch, type NewNodeInput } from '../stores/flow';
 import type { FlowNodeData } from '../types';
@@ -85,11 +85,7 @@ function cardContent(id: string) {
 
 function insertLabel(parentId: string) {
   const parent = flow.itemsById.get(parentId);
-  if (!parent) return 'Add node';
-  const name = parent.type === 'dateTimeConnector'
-    ? `${parent.data.connectorType === 'success' ? 'Success' : 'Failure'} branch`
-    : getItemTitle(parent);
-  return `Add node after ${name}`;
+  return parent ? `Add node after ${getItemDisplayName(parent, flow.itemsById)}` : 'Add node';
 }
 
 const route = useRoute();
@@ -145,6 +141,29 @@ function onNodeClick({ node }: NodeMouseEvent) {
 
 const createParentId = ref<string | null>(null);
 const drawerOpen = computed(() => !!selectedItem.value || !!createParentId.value);
+
+const createContext = computed(() => {
+  const parentId = createParentId.value;
+  const parent = parentId ? flow.itemsById.get(parentId) : undefined;
+  if (!parentId || !parent) return null;
+
+  const meta = NODE_META[parent.type];
+  return {
+    afterName: getItemDisplayName(parent, flow.itemsById),
+    afterIcon: `${meta.icon} ${meta.text}`,
+    hasNextSteps: flow.items.some((item) => item.parentId.toString() === parentId),
+  };
+});
+
+function insertButtonStyle({ parentId, color }: InsertNodeData) {
+  const active = createParentId.value === parentId;
+  return {
+    borderColor: color,
+    color: active ? 'white' : color,
+    backgroundColor: active ? color : undefined,
+    '--tw-ring-color': color,
+  };
+}
 
 watch(selectedId, (id) => {
   if (id) createParentId.value = null;
@@ -285,8 +304,9 @@ function onGraphFocusin(event: FocusEvent) {
           <button
             type="button"
             :aria-label="insertLabel(data.parentId)"
-            :style="{ borderColor: data.color, color: data.color }"
-            class="nodrag flex size-7 items-center justify-center rounded-full border bg-white hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2"
+            :aria-expanded="createParentId === data.parentId"
+            :style="insertButtonStyle(data)"
+            class="nodrag flex size-7 items-center justify-center rounded-full border bg-white hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
             @click="openCreate(data.parentId)"
           >
             <i class="pi pi-plus text-xs"></i>
@@ -302,7 +322,12 @@ function onGraphFocusin(event: FocusEvent) {
       </VueFlow>
     </div>
 
-    <Drawer ref="drawer" :open="drawerOpen" @close="closeDrawer({ returnFocus: true })">
+    <Drawer
+      ref="drawer"
+      :open="drawerOpen"
+      :describedby="createContext ? 'create-context' : undefined"
+      @close="closeDrawer({ returnFocus: true })"
+    >
       <template v-if="createParentId" #title>New node</template>
       <template v-else-if="selectedItem" #title>
         <span class="flex items-center gap-2">
@@ -312,8 +337,9 @@ function onGraphFocusin(event: FocusEvent) {
       </template>
 
       <CreateNodeForm
-        v-if="createParentId"
-        :key="createParentId"
+        v-if="createContext"
+        :key="createParentId!"
+        v-bind="createContext"
         @submit="onCreate"
         @cancel="closeDrawer({ returnFocus: true })"
       />
