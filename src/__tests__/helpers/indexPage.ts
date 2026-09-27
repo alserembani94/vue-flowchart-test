@@ -1,113 +1,117 @@
+import { vi } from "vitest";
 import { defineComponent, h, type PropType } from "vue";
-import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { createMemoryHistory, createRouter, type Router } from "vue-router";
+import { render } from "@testing-library/vue";
+import userEvent from "@testing-library/user-event";
+import { flushPromises } from "@vue/test-utils";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
-import { createPinia, type Pinia } from "pinia";
-import type { Node } from "@vue-flow/core";
+import { createPinia } from "pinia";
+import type { Node, NodeChange } from "@vue-flow/core";
 import IndexPage from "../../pages/index.vue";
 import { useFlowStore } from "../../stores/flow";
 
-export const VueFlowStub = defineComponent({
+vi.mock("../../api/process", async () => {
+  const { flowItems } = await import("../fixtures/flowItems");
+  return { getProcesses: vi.fn(async () => structuredClone(flowItems)) };
+});
+
+let emitFlow: ((event: string, ...args: unknown[]) => void) | undefined;
+
+const SELECTION_KEYS = ["Enter", " ", "Escape"];
+
+type NodeElement = HTMLElement & { flowNode: Node; flowEventsBound?: boolean };
+
+const VueFlowStub = defineComponent({
   name: "VueFlow",
   props: { nodes: { type: Array as PropType<Node[]>, default: () => [] } },
   emits: ["nodeClick", "nodesChange", "paneClick", "nodesInitialized"],
-  setup: (props, { slots }) => () =>
-    h(
-      "div",
-      { "data-test": "vue-flow" },
-      props.nodes.map((node) =>
-        h(
-          "div",
-          {
-            class: "vue-flow__node",
-            "data-id": node.id,
-            tabindex: node.focusable === false ? undefined : 0,
-          },
-          slots[`node-${node.type}`]?.({ id: node.id, type: node.type, data: node.data, selected: false }),
-        ),
-      ),
-    ),
+  setup(props, { slots, emit }) {
+    emitFlow = emit as typeof emitFlow;
+
+    const select = (node: Node) => {
+      if (node.selectable !== false) emit("nodesChange", [{ id: node.id, type: "select", selected: true }]);
+    };
+
+    const bindNodeEvents = (element: NodeElement | null, node: Node) => {
+      if (!element) return;
+      element.flowNode = node;
+      if (element.flowEventsBound) return;
+
+      element.flowEventsBound = true;
+      element.addEventListener("click", () => {
+        select(element.flowNode);
+        emit("nodeClick", { node: element.flowNode });
+      });
+      element.addEventListener("keydown", (event) => {
+        if (event.target === element && SELECTION_KEYS.includes(event.key)) select(element.flowNode);
+      });
+    };
+
+    return () =>
+      h("div", [
+        h("div", { "data-testid": "flow-pane", onClick: () => emit("paneClick") }),
+        ...props.nodes.map((node) => {
+          const focusable = node.focusable !== false;
+          return h(
+            "div",
+            {
+              class: "vue-flow__node",
+              "data-id": node.id,
+              role: focusable ? "group" : undefined,
+              tabindex: focusable ? 0 : undefined,
+              "aria-roledescription": "node",
+              "aria-label": node.ariaLabel,
+              ref: (element) => bindNodeEvents(element as NodeElement | null, node),
+            },
+            slots[`node-${node.type}`]?.({ id: node.id, type: node.type, data: node.data, selected: false }),
+          );
+        }),
+      ]);
+  },
 });
 
-export function useIndexPage() {
-  let router: Router;
-  let wrapper: VueWrapper;
-  let queryClient: QueryClient;
-  let pinia: Pinia;
+export function emitNodesChange(changes: NodeChange[]) {
+  emitFlow?.("nodesChange", changes);
+  return flushPromises();
+}
 
-  async function mountPage(url = "/") {
-    router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: "/", component: IndexPage }],
-    });
-    await router.push(url);
-    await router.isReady();
+export async function renderIndexPage(url = "/") {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/", component: IndexPage }],
+  });
+  await router.push(url);
+  await router.isReady();
 
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    pinia = createPinia();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const pinia = createPinia();
 
-    wrapper = mount(IndexPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [router, pinia, [VueQueryPlugin, { queryClient }]],
-        stubs: { VueFlow: VueFlowStub },
-      },
-    });
-    await flushPromises();
-  }
+  render(IndexPage, {
+    global: {
+      plugins: [router, pinia, [VueQueryPlugin, { queryClient }]],
+      stubs: { VueFlow: VueFlowStub },
+    },
+  });
+  await flushPromises();
 
-  const flow = () => wrapper.findComponent(VueFlowStub);
-  const nodeElement = (id: string) =>
-    wrapper.get<HTMLElement>(`.vue-flow__node[data-id="${id}"]`).element;
-
-  function isSelectableNode(id: string) {
-    const nodes = flow().props("nodes") as Node[];
-    return nodes.find((node) => node.id === id)?.selectable !== false;
-  }
-
-  async function clickNode(id: string) {
-    nodeElement(id).focus();
-    if (isSelectableNode(id)) {
-      flow().vm.$emit("nodesChange", [{ id, type: "select", selected: true }]);
-    }
-    flow().vm.$emit("nodeClick", { node: { id } });
-    await flushPromises();
-  }
-
-  async function pressEnterOn(id: string) {
-    nodeElement(id).focus();
-    flow().vm.$emit("nodesChange", [{ id, type: "select", selected: true }]);
-    await flushPromises();
-  }
-
-  async function emitDeselect(id: string) {
-    flow().vm.$emit("nodesChange", [{ id, type: "select", selected: false }]);
-    await flushPromises();
-  }
-
-  async function clickPane() {
-    flow().vm.$emit("paneClick");
-    await flushPromises();
-  }
+  const events = userEvent.setup({ delay: null });
+  const settled = <A extends unknown[]>(action: (...args: A) => Promise<unknown>) =>
+    async (...args: A) => {
+      await action(...args);
+      await flushPromises();
+    };
 
   return {
-    mountPage,
-    router: () => router,
-    wrapper: () => wrapper,
-    queryClient: () => queryClient,
-    store: () => useFlowStore(pinia),
-    unmount: () => wrapper?.unmount(),
-    flow,
-    nodeElement,
-    clickNode,
-    pressEnterOn,
-    emitDeselect,
-    clickPane,
-    drawer: () => wrapper.find("aside"),
-    drawerTitle: () => wrapper.get("#drawer-title").text(),
-    titleInput: () => wrapper.get<HTMLInputElement>('aside input[name="title"]').element,
-    descriptionInput: () => wrapper.get<HTMLTextAreaElement>('aside textarea[name="description"]').element,
-    card: (id: string) => wrapper.get(`.vue-flow__node[data-id="${id}"]`),
+    user: {
+      click: settled(events.click),
+      keyboard: settled(events.keyboard),
+      type: settled(events.type),
+      clear: settled(events.clear),
+      selectOptions: settled(events.selectOptions),
+    },
+    router,
+    queryClient,
+    store: useFlowStore(pinia),
     nodeQuery: () => router.currentRoute.value.query.node,
   };
 }

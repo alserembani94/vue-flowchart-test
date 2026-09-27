@@ -108,22 +108,24 @@ dl > dt {
   <div class="flex flex-col gap-6 text-sm">
 
     <section v-if="content" class="flex flex-col gap-3">
-      <label class="flex flex-col gap-1">
-        <span class="text-gray-500">Title</span>
-        <input
-          v-model="titleDraft"
-          name="title"
-          type="text"
-          required
-          :aria-invalid="titleInvalid"
-          :aria-describedby="titleInvalid ? 'node-title-error' : undefined"
-          class="rounded-lg border px-3 py-2"
-          :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
-          @input="onTitleInput"
-          @blur="onTitleBlur"
-        />
+      <div class="flex flex-col gap-1">
+        <label class="flex flex-col gap-1">
+          <span class="text-gray-500">Title</span>
+          <input
+            v-model="titleDraft"
+            name="title"
+            type="text"
+            required
+            :aria-invalid="titleInvalid"
+            :aria-describedby="titleInvalid ? 'node-title-error' : undefined"
+            class="rounded-lg border px-3 py-2"
+            :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
+            @input="onTitleInput"
+            @blur="onTitleBlur"
+          />
+        </label>
         <span v-if="titleInvalid" id="node-title-error" class="text-red-600">Title is required</span>
-      </label>
+      </div>
       <label class="flex flex-col gap-1">
         <span class="text-gray-500">Description</span>
         <textarea

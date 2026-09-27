@@ -12,15 +12,7 @@ const edgeStroke = (source: string, target: string) =>
   (edges.find((edge) => edge.source === source && edge.target === target)?.style as { stroke: string }).stroke;
 
 describe("withInsertPoints", () => {
-  it("adds an insert node after trigger, send message, add comment and connector nodes, but not business hours", () => {
-    const parents = nodes
-      .filter((node) => node.type === INSERT_NODE_TYPE)
-      .map((node) => node.data.parentId);
-
-    expect(parents).toEqual(["1", "161f52", "b0653a"]);
-  });
-
-  it("places each insert node right after its parent, for Tab order", () => {
+  it("adds an insert node right after trigger, send message, add comment and connector nodes, but not business hours", () => {
     expect(nodes.map((node) => node.id)).toEqual([
       "1",
       insertNodeId("1"),

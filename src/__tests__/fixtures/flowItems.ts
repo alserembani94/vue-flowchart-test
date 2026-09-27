@@ -1,6 +1,14 @@
 import type { FlowItem } from "../../types";
 
-export const flowItems: FlowItem[] = [
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object") {
+    Object.values(value).forEach(deepFreeze);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+export const flowItems: FlowItem[] = deepFreeze([
   {
     id: 1,
     parentId: -1,
@@ -33,4 +41,4 @@ export const flowItems: FlowItem[] = [
     name: "Welcome Message",
     data: { payload: [{ type: "text", text: "Hello there" }] },
   },
-];
+]);

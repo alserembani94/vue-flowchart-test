@@ -56,44 +56,48 @@ async function onSubmit() {
       <span class="min-w-0 truncate font-medium">{{ props.afterName }}</span>
     </p>
 
-    <label class="flex flex-col gap-1">
-      <span class="text-gray-500">Type of node</span>
-      <select
-        ref="typeSelect"
-        v-model="type"
-        name="type"
-        required
-        :aria-invalid="typeInvalid"
-        :aria-describedby="typeInvalid ? 'create-type-error' : undefined"
-        class="rounded-lg border bg-white px-3 py-2"
-        :class="typeInvalid ? 'border-red-500' : 'border-gray-200'"
-      >
-        <option value="" disabled>Select a type</option>
-        <option v-for="option in TYPE_OPTIONS" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
+    <div class="flex flex-col gap-1">
+      <label class="flex flex-col gap-1">
+        <span class="text-gray-500">Type of node</span>
+        <select
+          ref="typeSelect"
+          v-model="type"
+          name="type"
+          required
+          :aria-invalid="typeInvalid"
+          :aria-describedby="typeInvalid ? 'create-type-error' : undefined"
+          class="rounded-lg border bg-white px-3 py-2"
+          :class="typeInvalid ? 'border-red-500' : 'border-gray-200'"
+        >
+          <option value="" disabled>Select a type</option>
+          <option v-for="option in TYPE_OPTIONS" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
       <span v-if="typeInvalid" id="create-type-error" class="text-red-600">Type of node is required</span>
       <span v-if="type === 'businessHours' && props.hasNextSteps" class="text-gray-500">
         The steps after this point will move under its Success branch.
       </span>
-    </label>
+    </div>
 
-    <label class="flex flex-col gap-1">
-      <span class="text-gray-500">Title</span>
-      <input
-        ref="titleInput"
-        v-model="title"
-        name="title"
-        type="text"
-        required
-        :aria-invalid="titleInvalid"
-        :aria-describedby="titleInvalid ? 'create-title-error' : undefined"
-        class="rounded-lg border px-3 py-2"
-        :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
-      />
+    <div class="flex flex-col gap-1">
+      <label class="flex flex-col gap-1">
+        <span class="text-gray-500">Title</span>
+        <input
+          ref="titleInput"
+          v-model="title"
+          name="title"
+          type="text"
+          required
+          :aria-invalid="titleInvalid"
+          :aria-describedby="titleInvalid ? 'create-title-error' : undefined"
+          class="rounded-lg border px-3 py-2"
+          :class="titleInvalid ? 'border-red-500' : 'border-gray-200'"
+        />
+      </label>
       <span v-if="titleInvalid" id="create-title-error" class="text-red-600">Title is required</span>
-    </label>
+    </div>
 
     <label class="flex flex-col gap-1">
       <span class="text-gray-500">Description</span>

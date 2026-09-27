@@ -7,21 +7,7 @@ import type { FlowItem } from "../../types";
 describe("computeGraph", () => {
   const { nodes, edges } = computeGraph(flowItems);
 
-  it("creates a node per item with string ids", () => {
-    expect(nodes.map((node) => node.id)).toEqual([
-      "1",
-      "d09c08",
-      "161f52",
-      "b0653a",
-    ]);
-  });
-
-  it("skips the edge for the root item whose parent isn't in the data", () => {
-    expect(edges).toHaveLength(flowItems.length - 1);
-    expect(edges.some((edge) => edge.source === "-1")).toBe(false);
-  });
-
-  it("points edges from parent to child", () => {
+  it("points edges from parent to child, skipping the root whose parent isn't in the data", () => {
     expect(edges.map((edge) => [edge.source, edge.target])).toEqual([
       ["1", "d09c08"],
       ["d09c08", "161f52"],
@@ -59,7 +45,7 @@ describe("computeGraph", () => {
 });
 
 describe("computeGraph node order", () => {
-  it("orders nodes top-down (breadth-first) regardless of data order, for Tab order", () => {
+  it("creates one node per item with string ids, ordered top-down regardless of data order", () => {
     const [trigger, dateTime, connector, message] = flowItems as [FlowItem, FlowItem, FlowItem, FlowItem];
     const { nodes } = computeGraph([message, connector, trigger, dateTime]);
 
