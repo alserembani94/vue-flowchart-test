@@ -4,7 +4,7 @@ export async function getProcesses(): Promise<FlowItem[]> {
   const response = await fetch('/api/processes')
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch games: ${response.status}`)
+    throw new Error(`Failed to fetch chat flow: ${response.status}`)
   }
 
   return (await response.json()) as FlowItem[]
